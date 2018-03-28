@@ -90,6 +90,24 @@ public class GiraphConfiguration extends Configuration
   }
 
   /**
+   * Set the superstep to kill
+   * @author Shibo
+   * @param superstepToKill
+   */
+  public final void setSuperstepToKill(Integer superstepToKill){
+    SUPERSTEP_TO_KILL.set(this, superstepToKill);
+  }
+
+  /**
+   * Get the superstep to kill
+   * @author Shibo
+   * @return
+   */
+  public final int getSuperstepToKill(){
+    return SUPERSTEP_TO_KILL.get(this);
+  }
+
+  /**
    * Get name of computation being run. We leave this up to the
    * {@link ComputationFactory} to decide what to return.
    *

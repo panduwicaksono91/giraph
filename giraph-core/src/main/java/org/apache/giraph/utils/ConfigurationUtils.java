@@ -18,6 +18,7 @@
 package org.apache.giraph.utils;
 
 import static org.apache.giraph.conf.GiraphConstants.COMPUTATION_CLASS;
+import static org.apache.giraph.conf.GiraphConstants.ONE_KB;
 import static org.apache.giraph.conf.GiraphConstants.TYPES_HOLDER_CLASS;
 
 import java.io.IOException;
@@ -89,6 +90,11 @@ end[PURE_YARN]*/
 
   static {
     OPTIONS = new Options();
+
+    // new configuration
+    OPTIONS.addOption("s", "superstepToKill", true, "Help");
+
+
     OPTIONS.addOption("h", "help", false, "Help");
     OPTIONS.addOption("la", "listAlgorithms", false, "List supported " +
         "algorithms");
@@ -347,6 +353,13 @@ end[PURE_YARN]*/
           "OutputFormat does not require one.");
       }
     }
+
+    // set the superstep to kill
+    // shibo
+    if (cmd.hasOption("s")) {
+      conf.setSuperstepToKill(Integer.parseInt(cmd.getOptionValue("s")));
+    }
+
     if (cmd.hasOption("vof")) {
       if (cmd.hasOption("vsd")) {
         conf.setVertexOutputFormatSubdir(cmd.getOptionValue("vsd"));

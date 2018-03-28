@@ -106,6 +106,10 @@ public interface GiraphConstants {
   /** 1MB in bytes */
   int ONE_MB = 1024 * 1024;
 
+  /** Superstep to kill, -2 means never */
+  IntConfOption SUPERSTEP_TO_KILL = new IntConfOption("giraph.superstepToKill",
+          -2, "superstep to kill");
+
   /** Mapping related information */
   ClassConfOption<MappingStore> MAPPING_STORE_CLASS =
       ClassConfOption.create("giraph.mappingStoreClass", null,
