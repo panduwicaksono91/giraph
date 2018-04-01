@@ -196,9 +196,11 @@ end[PURE_YARN]*/
    */
   private void checkInput() {
     if (conf.hasEdgeInputFormat()) {
+      System.out.println("GraphTaskManager: checkInput() hasEdgeInputFormat");
       conf.createWrappedEdgeInputFormat().checkInputSpecs(conf);
     }
     if (conf.hasVertexInputFormat()) {
+      System.out.println("GraphTaskManager: checkInput() hasVertexInputFormat");
       conf.createWrappedVertexInputFormat().checkInputSpecs(conf);
     }
   }
@@ -347,7 +349,7 @@ end[PURE_YARN]*/
             finishedSuperstepStats.getEdgeCount(),
             context);
       } else if (storeCheckpoint(globalStats.getCheckpointStatus())) {
-        break;
+        break; // if CheckpointStatus.CHECKPOINT_AND_HALT --> superstep loop has completed ?
       }
       serviceWorker.getServerData().prepareResolveMutations();
       context.progress();

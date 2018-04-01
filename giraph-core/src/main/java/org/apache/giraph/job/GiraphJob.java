@@ -287,6 +287,7 @@ public class GiraphJob {
       if (!passed) {
         String restartFrom = retryChecker.shouldRestartCheckpoint(submittedJob);
         if (restartFrom != null) {
+          System.out.println("Restart from: " + restartFrom);
           GiraphConstants.RESTART_JOB_ID.set(conf, restartFrom);
           continue;
         }

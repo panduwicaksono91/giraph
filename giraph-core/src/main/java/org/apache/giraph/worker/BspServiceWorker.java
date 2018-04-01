@@ -464,14 +464,17 @@ public class BspServiceWorker<I extends WritableComparable,
     // 4. Wait until the INPUT_SPLIT_ALL_DONE_PATH node has been created
     // 5. Process any mutations deriving from add edge requests
     // 6. Wait for superstep INPUT_SUPERSTEP to complete.
+
+    // doing a restart, restart the job from command
     if (getRestartedSuperstep() != UNSET_SUPERSTEP) {
+      // to load the checkpoint later
       setCachedSuperstep(getRestartedSuperstep());
       return new FinishedSuperstepStats(0, false, 0, 0, true,
           CheckpointStatus.NONE);
     }
 
     JSONObject jobState = getJobState();
-    if (jobState != null) {
+    if (jobState != null) { // pessimistic recovery
       try {
         if ((ApplicationState.valueOf(jobState.getString(JSONOBJ_STATE_KEY)) ==
             ApplicationState.START_SUPERSTEP) &&
@@ -483,6 +486,8 @@ public class BspServiceWorker<I extends WritableComparable,
                 getSuperstep() + ", attempt " +
                 getApplicationAttempt());
           }
+
+          // set restarted superstep but cached superstep is still not set
           setRestartedSuperstep(getSuperstep());
           return new FinishedSuperstepStats(0, false, 0, 0, true,
               CheckpointStatus.NONE);
@@ -494,12 +499,15 @@ public class BspServiceWorker<I extends WritableComparable,
       }
     }
 
+    // if not restarting job from command or restarting from automated checkpoint
+    // do this thing during the setup
+
     // Add the partitions that this worker owns
     Collection<? extends PartitionOwner> masterSetPartitionOwners =
         startSuperstep();
     workerGraphPartitioner.updatePartitionOwners(
-        getWorkerInfo(), masterSetPartitionOwners);
-    getPartitionStore().initialize();
+        getWorkerInfo(), masterSetPartitionOwners); // update the assignment
+    getPartitionStore().initialize(); // initialize the partition store
 
 /*if[HADOOP_NON_SECURE]
     workerClient.setup();
@@ -514,7 +522,7 @@ else[HADOOP_NON_SECURE]*/
     VertexEdgeCount vertexEdgeCount;
     long entriesLoaded;
 
-    if (getConfiguration().hasMappingInputFormat()) {
+    if (getConfiguration().hasMappingInputFormat()) { // if the data has mapping input format
       getContext().progress();
       try {
         entriesLoaded = loadMapping();
@@ -539,7 +547,7 @@ else[HADOOP_NON_SECURE]*/
       localData.printStats();
     }
 
-    if (getConfiguration().hasVertexInputFormat()) {
+    if (getConfiguration().hasVertexInputFormat()) { // if the data has vertex input format
       getContext().progress();
       try {
         vertexEdgeCount = loadVertices();
@@ -556,7 +564,7 @@ else[HADOOP_NON_SECURE]*/
     }
     WorkerProgress.get().finishLoadingVertices();
 
-    if (getConfiguration().hasEdgeInputFormat()) {
+    if (getConfiguration().hasEdgeInputFormat()) { // if the data has edge input format
       getContext().progress();
       try {
         vertexEdgeCount = vertexEdgeCount.incrVertexEdgeCount(0, loadEdges());
@@ -709,11 +717,12 @@ else[HADOOP_NON_SECURE]*/
     // 3. Wait until the partition assignment is complete and get it
     // 4. Get the aggregator values from the previous superstep
     if (getSuperstep() != INPUT_SUPERSTEP) {
-      workerServer.prepareSuperstep();
+      workerServer.prepareSuperstep(); // combine the message
     }
 
-    registerHealth(getSuperstep());
+    registerHealth(getSuperstep()); // register the health
 
+    // get the partition assignment
     AddressesAndPartitionsWritable addressesAndPartitions =
         addressesAndPartitionsHolder.getElement(getContext());
 
@@ -739,6 +748,16 @@ else[HADOOP_NON_SECURE]*/
         LOG.debug(partitionOwner.getPartitionId() + " " +
             partitionOwner.getWorkerInfo());
       }
+    }
+
+    // custom write debug
+    System.out.println(System.currentTimeMillis() + " BSPServiceWorker " +
+            "startSuperstep: addressesAndPartitions" +
+            addressesAndPartitions.getWorkerInfos());
+    for (PartitionOwner partitionOwner : addressesAndPartitions.getPartitionOwners()) {
+      System.out.println(System.currentTimeMillis() + " BSPServiceWorker " +
+              partitionOwner.getPartitionId() + " " +
+              partitionOwner.getWorkerInfo());
     }
 
     return addressesAndPartitions.getPartitionOwners();

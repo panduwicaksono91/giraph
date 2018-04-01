@@ -78,10 +78,15 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
     for (DoubleWritable message : messages) {
       minDist = Math.min(minDist, message.get());
     }
+
+    // update to check the trace
     if (LOG.isDebugEnabled()) {
       LOG.debug("Vertex " + vertex.getId() + " got minDist = " + minDist +
           " vertex value = " + vertex.getValue());
     }
+    System.out.println("Vertex " + vertex.getId() + " got minDist = " + minDist +
+            " vertex value = " + vertex.getValue());
+
     if (minDist < vertex.getValue().get()) {
       vertex.setValue(new DoubleWritable(minDist));
       for (Edge<LongWritable, FloatWritable> edge : vertex.getEdges()) {
@@ -90,6 +95,9 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
           LOG.debug("Vertex " + vertex.getId() + " sent to " +
               edge.getTargetVertexId() + " = " + distance);
         }
+
+        System.out.println("Vertex " + vertex.getId() + " sent to " +
+                edge.getTargetVertexId() + " = " + distance);
         sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
       }
     }

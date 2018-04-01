@@ -355,7 +355,7 @@ end[PURE_YARN]*/
     }
 
     // set the superstep to kill
-    // shibo
+    // shibo & pandu
     if (cmd.hasOption("s")) {
       conf.setSuperstepToKill(Integer.parseInt(cmd.getOptionValue("s")));
     }

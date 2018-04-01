@@ -106,7 +106,7 @@ public interface GiraphConstants {
   /** 1MB in bytes */
   int ONE_MB = 1024 * 1024;
 
-  /** Superstep to kill, -2 means never */
+  /** Superstep to kill, -2 means never @Shibo and Pandu */
   IntConfOption SUPERSTEP_TO_KILL = new IntConfOption("giraph.superstepToKill",
           -2, "superstep to kill");
 
