@@ -155,6 +155,8 @@ public class MasterThread<I extends WritableComparable, V extends Writable,
           bspServiceMaster.setJobState(ApplicationState.FINISHED, -1, -1);
         }
       }
+
+      // if until this point, then the job is basically finished
       bspServiceMaster.cleanup(superstepState);
       if (!superstepSecsMap.isEmpty()) {
         GiraphTimers.getInstance().getShutdownMs().

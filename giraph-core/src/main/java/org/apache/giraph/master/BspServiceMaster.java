@@ -56,11 +56,7 @@ import org.apache.giraph.metrics.GiraphTimerContext;
 import org.apache.giraph.metrics.ResetSuperstepMetricsObserver;
 import org.apache.giraph.metrics.SuperstepMetricsRegistry;
 import org.apache.giraph.metrics.WorkerSuperstepMetrics;
-import org.apache.giraph.partition.BasicPartitionOwner;
-import org.apache.giraph.partition.MasterGraphPartitioner;
-import org.apache.giraph.partition.PartitionOwner;
-import org.apache.giraph.partition.PartitionStats;
-import org.apache.giraph.partition.PartitionUtils;
+import org.apache.giraph.partition.*;
 import org.apache.giraph.time.SystemTime;
 import org.apache.giraph.time.Time;
 import org.apache.giraph.utils.CheckpointingUtils;
@@ -187,6 +183,9 @@ public class BspServiceMaster<I extends WritableComparable,
   private CheckpointStatus checkpointStatus;
   /** Checks if checkpointing supported */
   private final CheckpointSupportedChecker checkpointSupportedChecker;
+
+  /** Optimistic recovery */
+  private Collection<PartitionOwner> fixedPartitionOwners;
 
   /**
    * Constructor for setting up the master.
@@ -500,6 +499,10 @@ public class BspServiceMaster<I extends WritableComparable,
     List<WorkerInfo> healthyWorkerInfoList = new ArrayList<WorkerInfo>();
     List<WorkerInfo> unhealthyWorkerInfoList = new ArrayList<WorkerInfo>();
     int totalResponses = -1;
+
+    // 1st check responded worker is more than enough (inside while loop)
+    // 2nd check healthy worker is more than minimum
+
     while (SystemTime.get().getMilliseconds() < failWorkerCheckMsecs) {
       getContext().progress();
       getAllWorkerInfos(
@@ -511,6 +514,9 @@ public class BspServiceMaster<I extends WritableComparable,
         failJob = false;
         break;
       }
+
+      // total response is adequate, failJob = false, break from this while loop
+      // else more check and log
       getContext().setStatus(getGraphTaskManager().getGraphFunctions() + " " +
           "checkWorkers: Only found " +
           totalResponses +
@@ -542,7 +548,7 @@ public class BspServiceMaster<I extends WritableComparable,
         }
       }
     }
-    if (failJob) {
+    if (failJob) { // fail job because we don't have enough worker
       LOG.error("checkWorkers: Did not receive enough processes in " +
           "time (only " + totalResponses + " of " +
           minWorkers + " required) after waiting " + maxSuperstepWaitMsecs +
@@ -552,7 +558,7 @@ public class BspServiceMaster<I extends WritableComparable,
       return null;
     }
 
-    if (healthyWorkerInfoList.size() < minWorkers) {
+    if (healthyWorkerInfoList.size() < minWorkers) { // if healthy worker is less than minimum, fail
       LOG.error("checkWorkers: Only " + healthyWorkerInfoList.size() +
           " available when " + minWorkers + " are required.");
       logMissingWorkersOnSuperstep(healthyWorkerInfoList,
@@ -1101,6 +1107,16 @@ public class BspServiceMaster<I extends WritableComparable,
         throw new IllegalStateException(
             "assignAndExchangePartitions: No partition owners set");
       }
+
+      // use a fixed partition owner
+      if(fixedPartitionOwners == null){
+        fixedPartitionOwners = new ArrayList<PartitionOwner>();
+        fixedPartitionOwners.addAll(partitionOwners);
+      }
+
+      System.out.println("Generate fix partition");
+      printPartitionOwners(fixedPartitionOwners);
+
     } else if (getRestartedSuperstep() == getSuperstep()) {
       // If restarted, prepare the checkpoint restart
       try {
@@ -1118,21 +1134,29 @@ public class BspServiceMaster<I extends WritableComparable,
       }
       masterGraphPartitioner.setPartitionOwners(partitionOwners);
     } else {
-      partitionOwners =
-          masterGraphPartitioner.generateChangedPartitionOwners(
-              allPartitionStatsList,
-              chosenWorkerInfoList,
-              maxWorkers,
-              getSuperstep());
+      // use fix partition owner
+//      partitionOwners =
+//          masterGraphPartitioner.generateChangedPartitionOwners(
+//              allPartitionStatsList,
+//              chosenWorkerInfoList,
+//              maxWorkers,
+//              getSuperstep());
+
+      partitionOwners = fixedPartitionOwners;
+
+      System.out.println("Change the partition owner at superstep: " + getSuperstep());
+      printPartitionOwners(partitionOwners);
 
       PartitionUtils.analyzePartitionStats(partitionOwners,
           allPartitionStatsList);
     }
+
+    // simple check of the partition
+    // check whether the id is valid (not < 0 or not >= partitionOwnerSize)
     checkPartitions(masterGraphPartitioner.getCurrentPartitionOwners());
 
-
-
     // There will be some exchange of partitions
+    // This is only generating the path in Zookeeper
     if (!partitionOwners.isEmpty()) {
       String vertexExchangePath =
           getPartitionExchangePath(getApplicationAttempt(),
@@ -1153,6 +1177,7 @@ public class BspServiceMaster<I extends WritableComparable,
                 vertexExchangePath);
       }
     }
+
 
     AddressesAndPartitionsWritable addressesAndPartitions =
         new AddressesAndPartitionsWritable(masterInfo, chosenWorkerInfoList,
@@ -1545,6 +1570,7 @@ public class BspServiceMaster<I extends WritableComparable,
     return superstepClasses;
   }
 
+  // the method that really does what it does in a superstep
   @Override
   public SuperstepState coordinateSuperstep() throws
   KeeperException, InterruptedException {
@@ -1561,7 +1587,7 @@ public class BspServiceMaster<I extends WritableComparable,
       getContext().progress();
     }
 
-    chosenWorkerInfoList = checkWorkers();
+    chosenWorkerInfoList = checkWorkers(); // get healthy workers
     if (chosenWorkerInfoList == null) {
       setJobStateFailed("coordinateSuperstep: Not enough healthy workers for " +
                     "superstep " + getSuperstep());
@@ -1573,6 +1599,8 @@ public class BspServiceMaster<I extends WritableComparable,
           return Integer.compare(wi1.getTaskId(), wi2.getTaskId());
         }
       });
+
+      // if a worker suddenly is not healthy, fail the superstep
       for (WorkerInfo workerInfo : chosenWorkerInfoList) {
         String workerInfoHealthyPath =
             getWorkerInfoHealthyPath(getApplicationAttempt(),
@@ -1594,13 +1622,14 @@ public class BspServiceMaster<I extends WritableComparable,
 
     masterClient.openConnections();
 
+    // assigning the partitions
     GiraphStats.getInstance().
         getCurrentWorkers().setValue(chosenWorkerInfoList.size());
     assignPartitionOwners();
 
     // Finalize the valid checkpoint file prefixes and possibly
     // the aggregators.
-    if (checkpointStatus != CheckpointStatus.NONE) {
+    if (checkpointStatus != CheckpointStatus.NONE) { // if we need to checkpoint
       String workerWroteCheckpointPath =
           getWorkerWroteCheckpointPath(getApplicationAttempt(),
               getSuperstep());
@@ -1628,6 +1657,7 @@ public class BspServiceMaster<I extends WritableComparable,
       globalCommHandler.getAggregatorHandler().sendDataToOwners(masterClient);
     }
 
+    // XXX save the data ?
     if (getSuperstep() == INPUT_SUPERSTEP) {
       // Initialize aggregators before coordinating
       initializeAggregatorInputSuperstep();
@@ -2083,5 +2113,15 @@ public class BspServiceMaster<I extends WritableComparable,
     int percentage = (int) gs.getLowestGraphPercentageInMemory().getValue();
     gs.getLowestGraphPercentageInMemory().setValue(
         Math.min(percentage, globalStats.getLowestGraphPercentageInMemory()));
+  }
+
+  /**
+   * Print the PartitionOwner
+   * @author Pandu
+   */
+  private void printPartitionOwners(Collection<PartitionOwner> partitionOwnerColletion){
+    for(PartitionOwner owner : partitionOwnerColletion) {
+      System.out.println("partitionId: " + owner.getPartitionId() + " " + owner.getWorkerInfo().getHostnameId());
+    }
   }
 }
