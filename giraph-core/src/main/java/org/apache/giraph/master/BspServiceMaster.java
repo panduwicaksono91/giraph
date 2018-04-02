@@ -85,10 +85,10 @@ import org.apache.zookeeper.ZooDefs.Ids;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.io.PrintStream;
+import java.io.*;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -186,6 +186,7 @@ public class BspServiceMaster<I extends WritableComparable,
 
   /** Optimistic recovery */
   private Collection<PartitionOwner> fixedPartitionOwners;
+  private String partitionOwnersDir = "/home/pandu/Desktop/windows-share";
 
   /**
    * Constructor for setting up the master.
@@ -1117,6 +1118,16 @@ public class BspServiceMaster<I extends WritableComparable,
       System.out.println("Generate fix partition");
       printPartitionOwners(fixedPartitionOwners);
 
+      System.out.println("Save fix partition to file");
+      printPartitionOwnersToFile(fixedPartitionOwners, "fixedPartitionOwners.txt");
+
+      System.out.println("Read fix partition from file");
+      Collection<PartitionOwner> tempPartitionOwner =
+              readPartitionOwnerFromFile("fixedPartitionOwners.txt");
+
+      System.out.println("Test the written partition");
+      printPartitionOwners(tempPartitionOwner);
+
     } else if (getRestartedSuperstep() == getSuperstep()) {
       // If restarted, prepare the checkpoint restart
       try {
@@ -1135,14 +1146,14 @@ public class BspServiceMaster<I extends WritableComparable,
       masterGraphPartitioner.setPartitionOwners(partitionOwners);
     } else {
       // use fix partition owner
-//      partitionOwners =
-//          masterGraphPartitioner.generateChangedPartitionOwners(
-//              allPartitionStatsList,
-//              chosenWorkerInfoList,
-//              maxWorkers,
-//              getSuperstep());
+      partitionOwners =
+          masterGraphPartitioner.generateChangedPartitionOwners(
+              allPartitionStatsList,
+              chosenWorkerInfoList,
+              maxWorkers,
+              getSuperstep());
 
-      partitionOwners = fixedPartitionOwners;
+//      partitionOwners = fixedPartitionOwners;
 
       System.out.println("Change the partition owner at superstep: " + getSuperstep());
       printPartitionOwners(partitionOwners);
@@ -2123,5 +2134,86 @@ public class BspServiceMaster<I extends WritableComparable,
     for(PartitionOwner owner : partitionOwnerColletion) {
       System.out.println("partitionId: " + owner.getPartitionId() + " " + owner.getWorkerInfo().getHostnameId());
     }
+  }
+
+  /**
+   * Print the PartitionOwner to file
+   * @author Pandu
+   */
+  private void printPartitionOwnersToFile(Collection<PartitionOwner> partitionOwnerCollection, String filename){
+    String fullFilename = partitionOwnersDir + "/" + filename;
+
+    java.nio.file.Path p = Paths.get(fullFilename);
+    if(Files.exists(p)){
+      return;
+    }
+
+    try {
+      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
+      for(PartitionOwner owner : partitionOwnerCollection){
+        // write the partition id
+        writer.write(owner.getPartitionId() + "\n"); // 0
+
+        // write the worker info
+        WorkerInfo workerInfo = owner.getWorkerInfo();
+        writer.write(workerInfo.getHostname() + "\n"); // hostname 1
+        writer.write(workerInfo.getPort() + "\n"); // port 2
+        writer.write(workerInfo.getTaskId() + "\n"); // taskID 3
+        writer.write(workerInfo.getHostOrIp() + "\n"); // hostOrIp 4
+
+        writer.flush();
+      }
+      writer.close();
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private Collection<PartitionOwner> readPartitionOwnerFromFile(String filename){
+    String file = partitionOwnersDir + "/" + filename;
+    ArrayList<PartitionOwner> result = new ArrayList<PartitionOwner>();
+
+    try {
+      BufferedReader br = new BufferedReader(new FileReader(file));
+      int counter = 0;
+      String partitionID = "";
+      String hostname = "";
+      String port = "";
+      String taskID = "";
+      String hostOrIp = "";
+
+      String line = br.readLine();
+
+      while(line != null){
+        if(counter == 0) { partitionID = line; }
+        if(counter == 1) { hostname = line; }
+        if(counter == 2) { port = line;}
+        if(counter == 3) { taskID = line; }
+        if(counter == 4) { hostOrIp = line; }
+        counter++;
+
+        if(counter == 5) { // successfully read the data
+          WorkerInfo workerInfo = new WorkerInfo();
+          workerInfo.setHostname(hostname);
+          workerInfo.setPort(Integer.parseInt(port));
+          workerInfo.setTaskId(Integer.parseInt(taskID));
+          workerInfo.setHostOrIp(hostOrIp);
+
+          PartitionOwner owner = new BasicPartitionOwner(Integer.parseInt(partitionID), workerInfo);
+          result.add(owner);
+          counter = 0;
+        }
+
+        line = br.readLine();
+      }
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (IOException e){
+      e.printStackTrace();
+    }
+
+    return result;
   }
 }

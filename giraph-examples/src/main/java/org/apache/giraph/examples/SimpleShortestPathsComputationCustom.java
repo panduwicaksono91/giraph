@@ -84,7 +84,8 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
       LOG.debug("Vertex " + vertex.getId() + " got minDist = " + minDist +
           " vertex value = " + vertex.getValue());
     }
-    System.out.println(System.currentTimeMillis() + " " + getConf().getLocalHostname()
+    System.out.println(getMyWorkerIndex() + " " + getConf().getLocalHostname() + " " +
+            getConf().getLocalHostOrIp()
             + " " + getConf().getPartitionClass() + " " + getConf().getTaskPartition() + " " +
             "Vertex " + vertex.getId() + " got minDist = " + minDist +
             " vertex value = " + vertex.getValue());
@@ -98,7 +99,8 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
               edge.getTargetVertexId() + " = " + distance);
         }
 
-        System.out.println(System.currentTimeMillis() + " " + getConf().getLocalHostname()
+        System.out.println(getMyWorkerIndex() + " " + getConf().getLocalHostname() + " " +
+                getConf().getLocalHostOrIp()
                 + " " + getConf().getPartitionClass() + " " + getConf().getTaskPartition() + " " +
                 "Vertex " + vertex.getId() + " sent to " +
                 edge.getTargetVertexId() + " = " + distance);

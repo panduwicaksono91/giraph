@@ -168,4 +168,16 @@ public abstract class TaskInfo implements Writable {
     return result;
   }
 
+  /** optimistic recovery */
+  public void setHostname(String hostname) {
+    this.hostname = hostname;
+  }
+
+  public void setPort(int port){
+    this.port = port;
+  }
+
+  public void setHostOrIp(String hostOrIp){
+    this.hostOrIp = hostOrIp;
+  }
 }
