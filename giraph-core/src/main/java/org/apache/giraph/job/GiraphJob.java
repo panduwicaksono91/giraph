@@ -219,16 +219,17 @@ public class GiraphJob {
 
     // If the checkpoint frequency is 0 (no failure handling), set the max
     // tasks attempts to be 1 to encourage faster failure of unrecoverable jobs
-    if (giraphConfiguration.getCheckpointFrequency() == 0) {
-      int oldMaxTaskAttempts = giraphConfiguration.getMaxTaskAttempts();
-      giraphConfiguration.setMaxTaskAttempts(1);
-      if (LOG.isInfoEnabled()) {
-        LOG.info("run: Since checkpointing is disabled (default), " +
-            "do not allow any task retries (setting " +
-            GiraphConstants.MAX_TASK_ATTEMPTS.getKey() + " = 1, " +
-            "old value = " + oldMaxTaskAttempts + ")");
-      }
-    }
+    // optimistic recovery
+//    if (giraphConfiguration.getCheckpointFrequency() == 0) {
+//      int oldMaxTaskAttempts = giraphConfiguration.getMaxTaskAttempts();
+//      giraphConfiguration.setMaxTaskAttempts(1);
+//      if (LOG.isInfoEnabled()) {
+//        LOG.info("run: Since checkpointing is disabled (default), " +
+//            "do not allow any task retries (setting " +
+//            GiraphConstants.MAX_TASK_ATTEMPTS.getKey() + " = 1, " +
+//            "old value = " + oldMaxTaskAttempts + ")");
+//      }
+//    }
 
     // Set the job properties, check them, and submit the job
     ImmutableClassesGiraphConfiguration conf =
