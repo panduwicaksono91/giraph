@@ -143,11 +143,14 @@ public class ServerData<I extends WritableComparable,
     this.serviceWorker = service;
     this.conf = conf;
     this.messageStoreFactory = createMessageStoreFactory();
+
     EdgeStoreFactory<I, V, E> edgeStoreFactory = conf.createEdgeStoreFactory();
     edgeStoreFactory.initialize(service, conf, context);
     EdgeStore<I, V, E> inMemoryEdgeStore = edgeStoreFactory.newStore();
+
     PartitionStore<I, V, E> inMemoryPartitionStore =
         new SimplePartitionStore<I, V, E>(conf, context);
+
     if (GiraphConstants.USE_OUT_OF_CORE_GRAPH.get(conf)) {
       oocEngine = new OutOfCoreEngine(conf, service, workerServer);
       partitionStore =

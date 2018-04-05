@@ -825,6 +825,7 @@ public abstract class BspService<I extends WritableComparable,
           event.getState());
     }
 
+    // process all shared event
     if ((event.getPath() == null) && (event.getType() == EventType.None)) {
       if (event.getState() == KeeperState.Disconnected) {
         // Watches may not be triggered for some time, so signal all BspEvents
@@ -844,13 +845,14 @@ public abstract class BspService<I extends WritableComparable,
       return;
     }
 
+    // process specific event one by one
     boolean eventProcessed = false;
-    if (event.getPath().startsWith(masterJobStatePath)) {
+    if (event.getPath().startsWith(masterJobStatePath)) { // master has been found ?
       // This will cause all becomeMaster() MasterThreads to notice the
       // change in job state and quit trying to become the master.
       masterElectionChildrenChanged.signal();
       eventProcessed = true;
-    } else if ((event.getPath().contains(WORKER_HEALTHY_DIR) ||
+    } else if ((event.getPath().contains(WORKER_HEALTHY_DIR) || // change in worker healthy / unhealthy
         event.getPath().contains(WORKER_UNHEALTHY_DIR)) &&
         (event.getType() == EventType.NodeChildrenChanged)) {
       if (LOG.isDebugEnabled()) {
@@ -859,42 +861,42 @@ public abstract class BspService<I extends WritableComparable,
       }
       workerHealthRegistrationChanged.signal();
       eventProcessed = true;
-    } else if (event.getPath().contains(INPUT_SPLITS_ALL_DONE_NODE) &&
+    } else if (event.getPath().contains(INPUT_SPLITS_ALL_DONE_NODE) && // done distributing input split
         event.getType() == EventType.NodeCreated) {
       if (LOG.isInfoEnabled()) {
         LOG.info("process: all input splits done");
       }
       inputSplitsAllDoneEvent.signal();
       eventProcessed = true;
-    } else if (event.getPath().contains(INPUT_SPLITS_WORKER_DONE_DIR) &&
+    } else if (event.getPath().contains(INPUT_SPLITS_WORKER_DONE_DIR) && // done reading input split
         event.getType() == EventType.NodeChildrenChanged) {
       if (LOG.isDebugEnabled()) {
         LOG.debug("process: worker done reading input splits");
       }
       inputSplitsWorkerDoneEvent.signal();
       eventProcessed = true;
-    } else if (event.getPath().contains(SUPERSTEP_FINISHED_NODE) &&
+    } else if (event.getPath().contains(SUPERSTEP_FINISHED_NODE) && // a superstep is finished
         event.getType() == EventType.NodeCreated) {
       if (LOG.isInfoEnabled()) {
         LOG.info("process: superstepFinished signaled");
       }
       superstepFinished.signal();
       eventProcessed = true;
-    } else if (event.getPath().endsWith(applicationAttemptsPath) &&
+    } else if (event.getPath().endsWith(applicationAttemptsPath) && // application attempt is changed
         event.getType() == EventType.NodeChildrenChanged) {
       if (LOG.isInfoEnabled()) {
         LOG.info("process: applicationAttemptChanged signaled");
       }
       applicationAttemptChanged.signal();
       eventProcessed = true;
-    } else if (event.getPath().contains(MASTER_ELECTION_DIR) &&
+    } else if (event.getPath().contains(MASTER_ELECTION_DIR) && // trying to select new master ?
         event.getType() == EventType.NodeChildrenChanged) {
       if (LOG.isInfoEnabled()) {
         LOG.info("process: masterElectionChildrenChanged signaled");
       }
       masterElectionChildrenChanged.signal();
       eventProcessed = true;
-    } else if (event.getPath().equals(cleanedUpPath) &&
+    } else if (event.getPath().equals(cleanedUpPath) && // clean up event
         event.getType() == EventType.NodeChildrenChanged) {
       if (LOG.isInfoEnabled()) {
         LOG.info("process: cleanedUpChildrenChanged signaled");

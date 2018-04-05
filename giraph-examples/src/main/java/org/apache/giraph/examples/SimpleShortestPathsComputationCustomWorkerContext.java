@@ -6,7 +6,7 @@ import org.apache.log4j.Logger;
 
 public class SimpleShortestPathsComputationCustomWorkerContext extends WorkerContext {
 
-    static double failed_superstep = 2;
+    static int counter = 1;
 
     private static final Logger LOG = Logger.getLogger(SimpleShortestPathsComputationCustomWorkerContext.class);
 

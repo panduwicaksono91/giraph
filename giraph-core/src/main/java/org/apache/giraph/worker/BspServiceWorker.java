@@ -1607,6 +1607,7 @@ else[HADOOP_NON_SECURE]*/
         new NettyWorkerClientRequestProcessor<I, V, E>(getContext(),
             getConfiguration(), this,
             false /* useOneMessageToManyIdsEncoding */);
+
     for (Entry<WorkerInfo, List<Integer>> workerPartitionList :
       randomEntryList) {
       for (Integer partitionId : workerPartitionList.getValue()) {
@@ -1635,9 +1636,11 @@ else[HADOOP_NON_SECURE]*/
     } catch (IOException e) {
       throw new IllegalStateException("sendWorkerPartitions: Flush failed", e);
     }
+
     String myPartitionExchangeDonePath =
         getPartitionExchangeWorkerPath(
             getApplicationAttempt(), getSuperstep(), getWorkerInfo());
+
     try {
       getZkExt().createExt(myPartitionExchangeDonePath,
           null,

@@ -221,7 +221,7 @@ public class BspServiceMaster<I extends WritableComparable,
     if (conf.isReactiveJmapHistogramDumpEnabled()) {
       conf.addMasterObserverClass(ReactiveJMapHistoDumper.class);
     }
-    observers = conf.createMasterObservers(context);
+    observers = conf.createMasterObservers(context); // default is null
 
     this.checkpointFrequency = conf.getCheckpointFrequency();
     this.checkpointStatus = CheckpointStatus.NONE;
@@ -1327,14 +1327,20 @@ public class BspServiceMaster<I extends WritableComparable,
           "barrierOnWorkerList: InterruptedException - Couldn't create " +
               finishedWorkerPath, e);
     }
+
+    // get all the hostname
     List<String> hostnameIdList =
         new ArrayList<String>(workerInfoList.size());
     for (WorkerInfo workerInfo : workerInfoList) {
       hostnameIdList.add(workerInfo.getHostnameId());
     }
+
+    // get the healthy worker
     String workerInfoHealthyPath =
         getWorkerInfoHealthyPath(getApplicationAttempt(), getSuperstep());
     List<String> finishedHostnameIdList = new ArrayList<>();
+
+    // initialize the "waiting" until failure
     long nextInfoMillis = System.currentTimeMillis();
     final int defaultTaskTimeoutMsec = 10 * 60 * 1000;  // from TaskTracker
     final int waitBetweenLogInfoMsec = 30 * 1000;
@@ -1343,7 +1349,11 @@ public class BspServiceMaster<I extends WritableComparable,
     long lastRegularRunTimeMsec = 0;
     int eventLoopTimeout =  Math.min(taskTimeoutMsec, waitBetweenLogInfoMsec);
     boolean logInfoOnlyRun = false;
+
+    // initialize deadWorkers
     List<WorkerInfo> deadWorkers = new ArrayList<>();
+
+    // wait until complete
     while (true) {
       if (! logInfoOnlyRun) {
         try {
@@ -1500,7 +1510,7 @@ public class BspServiceMaster<I extends WritableComparable,
   private void coordinateInputSplits() {
     // Coordinate the workers finishing sending their vertices/edges to the
     // correct workers and signal when everything is done.
-    if (!barrierOnWorkerList(inputSplitsWorkerDonePath,
+    if (!barrierOnWorkerList(inputSplitsWorkerDonePath, // barrier on input split done
         chosenWorkerInfoList,
         getInputSplitsWorkerDoneEvent(),
         false)) {
@@ -1543,6 +1553,8 @@ public class BspServiceMaster<I extends WritableComparable,
     throws InterruptedException {
     globalCommHandler.getAggregatorHandler().prepareSuperstep();
 
+    // set the graph state and set superstep class in master compute
+    // superstep class has computation
     prepareMasterCompute(getSuperstep());
     try {
       masterCompute.initialize();
@@ -1575,7 +1587,7 @@ public class BspServiceMaster<I extends WritableComparable,
         GiraphStats.getInstance().getEdges().getValue(),
         getContext());
     SuperstepClasses superstepClasses =
-        SuperstepClasses.createAndExtractTypes(getConfiguration());
+        SuperstepClasses.createAndExtractTypes(getConfiguration()); // holds the computation classes
     masterCompute.setGraphState(graphState);
     masterCompute.setSuperstepClasses(superstepClasses);
     return superstepClasses;
@@ -1644,6 +1656,7 @@ public class BspServiceMaster<I extends WritableComparable,
       String workerWroteCheckpointPath =
           getWorkerWroteCheckpointPath(getApplicationAttempt(),
               getSuperstep());
+
       // first wait for all the workers to write their checkpoint data
       if (!barrierOnWorkerList(workerWroteCheckpointPath,
           chosenWorkerInfoList,
@@ -1651,6 +1664,7 @@ public class BspServiceMaster<I extends WritableComparable,
           checkpointStatus == CheckpointStatus.CHECKPOINT_AND_HALT)) {
         return SuperstepState.WORKER_FAILURE;
       }
+
       try {
         finalizeCheckpoint(getSuperstep(), chosenWorkerInfoList);
       } catch (IOException e) {
@@ -1658,6 +1672,7 @@ public class BspServiceMaster<I extends WritableComparable,
             "coordinateSuperstep: IOException on finalizing checkpoint",
             e);
       }
+
       if (checkpointStatus == CheckpointStatus.CHECKPOINT_AND_HALT) {
         return SuperstepState.CHECKPOINT_AND_HALT;
       }
@@ -1668,7 +1683,7 @@ public class BspServiceMaster<I extends WritableComparable,
       globalCommHandler.getAggregatorHandler().sendDataToOwners(masterClient);
     }
 
-    // XXX save the data ?
+    // save the data ?
     if (getSuperstep() == INPUT_SUPERSTEP) {
       // Initialize aggregators before coordinating
       initializeAggregatorInputSuperstep();
@@ -1677,10 +1692,11 @@ public class BspServiceMaster<I extends WritableComparable,
 
     String finishedWorkerPath =
         getWorkerFinishedPath(getApplicationAttempt(), getSuperstep());
-    if (!barrierOnWorkerList(finishedWorkerPath,
+    if (!barrierOnWorkerList(finishedWorkerPath, // wait until the superstep is finished
         chosenWorkerInfoList,
         getSuperstepStateChangedEvent(),
         false)) {
+      System.out.println("BSPServiceMaster: fail when doing superstep " + getSuperstep());
       return SuperstepState.WORKER_FAILURE;
     }
 

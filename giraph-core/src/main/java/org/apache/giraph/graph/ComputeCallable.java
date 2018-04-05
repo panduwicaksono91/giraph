@@ -146,7 +146,7 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
   }
 
   @Override
-  public Collection<PartitionStats> call() {
+  public Collection<PartitionStats> call() { // actually doing the computation with Computation class
     // Thread initialization (for locality)
     WorkerClientRequestProcessor<I, V, E> workerClientRequestProcessor =
         new NettyWorkerClientRequestProcessor<I, V, E>(
@@ -177,7 +177,9 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
     while (true) {
       long startTime = System.currentTimeMillis();
       long startGCTime = taskManager.getSuperstepGCTime();
+
       Partition<I, V, E> partition = partitionStore.getNextPartition();
+
       long timeDoingGCWhileWaiting =
           taskManager.getSuperstepGCTime() - startGCTime;
       timeDoingGC += timeDoingGCWhileWaiting;
@@ -297,6 +299,7 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
         }
       }
     };
+
     // Make sure this is thread-safe across runs
     synchronized (partition) {
       if (ignoreExistingVertices) {

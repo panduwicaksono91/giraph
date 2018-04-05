@@ -246,9 +246,14 @@ public class ProgressableUtils {
   public static <R> List<R> getResultsWithNCallables(
       CallableFactory<R> callableFactory, int numThreads,
       String threadNameFormat, Progressable progressable) {
+
     ExecutorService executorService = Executors.newFixedThreadPool(numThreads,
         ThreadUtils.createThreadFactory(threadNameFormat));
+
     HashMap<Integer, Future<R>> futures = new HashMap<>(numThreads);
+
+    // initialize the callable
+    // the i is not used
     for (int i = 0; i < numThreads; i++) {
       Callable<R> callable = callableFactory.newCallable(i);
       Future<R> future = executorService.submit(
@@ -256,8 +261,10 @@ public class ProgressableUtils {
       futures.put(i, future);
     }
     executorService.shutdown();
+
     List<R> futureResults =
         new ArrayList<>(Collections.<R>nCopies(numThreads, null));
+
     // Loop through the futures until all are finished
     // We do this in order to get any exceptions from the futures early
     while (!futures.isEmpty()) {

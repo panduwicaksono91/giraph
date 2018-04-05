@@ -312,51 +312,84 @@ end[PURE_YARN]*/
     if (checkTaskState()) {
       return;
     }
-    preLoadOnWorkerObservers();
+    preLoadOnWorkerObservers(); // probably not used because the default observer is null
     GiraphTimerContext superstepTimerContext = superstepTimer.time();
+
+    // if not restarting from command or restarting from automated checkpoint
+    // read the input split and load the data partition (getPartitionStore())
     finishedSuperstepStats = serviceWorker.setup();
+
     superstepTimerContext.stop();
+
     if (collectInputSuperstepStats(finishedSuperstepStats)) {
-      return;
+      return; // if no vertex and don't have to load checkpoint, return and stop
     }
+
+
     prepareGraphStateAndWorkerContext();
+    // call updateSuperstepGraphState() --> update the graph state in serviceWorker.getWorkerContext()
+    // new GraphState(serviceWorker.getSuperstep(),
+    //            finishedSuperstepStats.getVertexCount(),
+    //            finishedSuperstepStats.getEdgeCount(), context));
+    // call workerContextPreApp(); --> call preApplication() in the worker context
+
     List<PartitionStats> partitionStatsList = new ArrayList<PartitionStats>();
     int numComputeThreads = conf.getNumComputeThreads();
 
     // main superstep processing loop
     while (!finishedSuperstepStats.allVerticesHalted()) {
+      // process until all vertices are halted
+      // the vertices can become active again if they receive a message
       final long superstep = serviceWorker.getSuperstep();
       superstepTimerContext = getTimerForThisSuperstep(superstep);
+
       GraphState graphState = new GraphState(superstep,
           finishedSuperstepStats.getVertexCount(),
           finishedSuperstepStats.getEdgeCount(),
           context);
+
       Collection<? extends PartitionOwner> masterAssignedPartitionOwners =
-        serviceWorker.startSuperstep();
+        serviceWorker.startSuperstep(); // only get the partition for this worker
+
       if (LOG.isDebugEnabled()) {
         LOG.debug("execute: " + MemoryUtils.getRuntimeMemoryStats());
       }
       context.progress();
-      serviceWorker.exchangeVertexPartitions(masterAssignedPartitionOwners);
+
+      serviceWorker.exchangeVertexPartitions(masterAssignedPartitionOwners); // exchange the partition
       context.progress();
+
       boolean hasBeenRestarted = checkSuperstepRestarted(superstep);
 
       GlobalStats globalStats = serviceWorker.getGlobalStats();
+      // if the superstep is more than input_superstep and restarted superstep
+      // set the stats as superstep -1
 
-      if (hasBeenRestarted) {
+      if (hasBeenRestarted) { // if restarted, get the latest finishedSuperstepStats
         graphState = new GraphState(superstep,
             finishedSuperstepStats.getVertexCount(),
             finishedSuperstepStats.getEdgeCount(),
             context);
       } else if (storeCheckpoint(globalStats.getCheckpointStatus())) {
-        break; // if CheckpointStatus.CHECKPOINT_AND_HALT --> superstep loop has completed ?
+        // determine whether we need to checpoint or not
+        // if CheckpointStatus.CHECKPOINT_AND_HALT --> superstep loop has completed ? seems yes
+        break;
       }
+
+      // get the graph mutation
       serviceWorker.getServerData().prepareResolveMutations();
       context.progress();
+
+      // prepare the aggregator and worker context
+      // run worker context.preSuperstep
       prepareForSuperstep(graphState);
       context.progress();
+
+      // get the message
       MessageStore<I, Writable> messageStore =
           serviceWorker.getServerData().getCurrentMessageStore();
+
+
       int numPartitions = serviceWorker.getPartitionStore().getNumPartitions();
       int numThreads = Math.min(numComputeThreads, numPartitions);
       if (LOG.isInfoEnabled()) {
@@ -365,6 +398,7 @@ end[PURE_YARN]*/
           numComputeThreads + " thread(s) on superstep " + superstep);
       }
       partitionStatsList.clear();
+
       // execute the current superstep
       if (numPartitions > 0) {
         processGraphPartitions(context, partitionStatsList, graphState,
@@ -498,10 +532,14 @@ end[PURE_YARN]*/
    * @param graphState graph state metadata object
    */
   private void prepareForSuperstep(GraphState graphState) {
-    serviceWorker.prepareSuperstep();
+    serviceWorker.prepareSuperstep(); // prepare the aggregator
 
     serviceWorker.getWorkerContext().setGraphState(graphState);
+
+    // setup worker context to use this serviceWorker
+    // give information to worker context about all worker
     serviceWorker.getWorkerContext().setupSuperstep(serviceWorker);
+
     GiraphTimerContext preSuperstepTimer = wcPreSuperstepTimer.time();
     serviceWorker.getWorkerContext().preSuperstep();
     preSuperstepTimer.stop();
@@ -799,19 +837,28 @@ end[PURE_YARN]*/
       final GraphState graphState,
       final MessageStore<I, Writable> messageStore,
       int numThreads) {
+
+    // get the partition store
     PartitionStore<I, V, E> partitionStore = serviceWorker.getPartitionStore();
+
+    // calculate vertices to compute
     long verticesToCompute = 0;
     for (Integer partitionId : partitionStore.getPartitionIds()) {
       verticesToCompute += partitionStore.getPartitionVertexCount(partitionId);
     }
+
+    // just trace the progress of a worker
     WorkerProgress.get().startSuperstep(
         serviceWorker.getSuperstep(), verticesToCompute,
         serviceWorker.getPartitionStore().getNumPartitions());
-    partitionStore.startIteration();
+
+    partitionStore.startIteration(); // put the partition into queue
 
     GiraphTimerContext computeAllTimerContext = computeAll.time();
     timeToFirstMessageTimerContext = timeToFirstMessage.time();
 
+    // actually doing the computation
+    // however they use threads so it looks more complicated
     CallableFactory<Collection<PartitionStats>> callableFactory =
       new CallableFactory<Collection<PartitionStats>>() {
         @Override
@@ -825,6 +872,7 @@ end[PURE_YARN]*/
               serviceWorker);
         }
       };
+
     List<Collection<PartitionStats>> results =
         ProgressableUtils.getResultsWithNCallables(callableFactory, numThreads,
             "compute-%d", context);
