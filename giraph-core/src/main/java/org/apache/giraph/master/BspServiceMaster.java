@@ -1447,15 +1447,23 @@ public class BspServiceMaster<I extends WritableComparable,
           String errorMessage = "******* WORKERS " + deadWorkers +
               " FAILED *******";
           // If checkpointing is not used, we should fail the job
-          if (!getConfiguration().useCheckpointing()) {
-            setJobStateFailed(errorMessage);
-          } else {
-            LOG.error("barrierOnWorkerList: Missing chosen " +
-                "workers " + deadWorkers +
-                " on superstep " + getSuperstep());
+//          if (!getConfiguration().useCheckpointing()) {
+//            setJobStateFailed(errorMessage);
+//          } else {
+//            LOG.error("barrierOnWorkerList: Missing chosen " +
+//                "workers " + deadWorkers +
+//                " on superstep " + getSuperstep());
+//            // Log worker failure to command line
+//            getGraphTaskManager().getJobProgressTracker().logInfo(errorMessage);
+//          }
+//          return false;
+
+          // optimistic recovery
+          LOG.error("barrierOnWorkerList: Missing chosen " +
+                    "workers " + deadWorkers +
+                    " on superstep " + getSuperstep());
             // Log worker failure to command line
-            getGraphTaskManager().getJobProgressTracker().logInfo(errorMessage);
-          }
+          getGraphTaskManager().getJobProgressTracker().logInfo(errorMessage);
           return false;
         }
       } catch (KeeperException e) {
