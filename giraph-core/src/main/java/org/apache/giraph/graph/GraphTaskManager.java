@@ -348,8 +348,10 @@ end[PURE_YARN]*/
           finishedSuperstepStats.getEdgeCount(),
           context);
 
+      // register the health of the worker
+      // only get the partition for this worker
       Collection<? extends PartitionOwner> masterAssignedPartitionOwners =
-        serviceWorker.startSuperstep(); // only get the partition for this worker
+        serviceWorker.startSuperstep();
 
       if (LOG.isDebugEnabled()) {
         LOG.debug("execute: " + MemoryUtils.getRuntimeMemoryStats());

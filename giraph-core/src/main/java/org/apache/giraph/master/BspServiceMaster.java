@@ -1800,21 +1800,31 @@ public class BspServiceMaster<I extends WritableComparable,
       throw new IllegalStateException(
           "cleanupZooKeeper: Got IllegalStateException", e);
     }
-    if (checkpointFrequency == 0) {
-      return CheckpointStatus.NONE;
-    }
+//    if (checkpointFrequency == 0) {
+//      return CheckpointStatus.NONE;
+//    }
+//    long firstCheckpoint = INPUT_SUPERSTEP + 1;
+//    if (getRestartedSuperstep() != UNSET_SUPERSTEP) {
+//      firstCheckpoint = getRestartedSuperstep() + checkpointFrequency;
+//    }
+//    if (superstep < firstCheckpoint) {
+//      return CheckpointStatus.NONE;
+//    }
+//    if (((superstep - firstCheckpoint) % checkpointFrequency) == 0) {
+//      if (isCheckpointingSupported(getConfiguration(), masterCompute)) {
+//        return CheckpointStatus.CHECKPOINT;
+//      }
+//    }
+//    return CheckpointStatus.NONE;
+
+    // optimistic recovery
+
     long firstCheckpoint = INPUT_SUPERSTEP + 1;
-    if (getRestartedSuperstep() != UNSET_SUPERSTEP) {
-      firstCheckpoint = getRestartedSuperstep() + checkpointFrequency;
+
+    if(superstep == firstCheckpoint){
+      return CheckpointStatus.CHECKPOINT;
     }
-    if (superstep < firstCheckpoint) {
-      return CheckpointStatus.NONE;
-    }
-    if (((superstep - firstCheckpoint) % checkpointFrequency) == 0) {
-      if (isCheckpointingSupported(getConfiguration(), masterCompute)) {
-        return CheckpointStatus.CHECKPOINT;
-      }
-    }
+
     return CheckpointStatus.NONE;
   }
 

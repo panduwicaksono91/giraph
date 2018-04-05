@@ -65,15 +65,16 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
       vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
     }
 
+	boolean attempt = (getContext().getTaskAttemptID().getId() == 0) ? true : false;
     boolean superstep_to_kill = (getSuperstep() == getConf().getSuperstepToKill()) ? true : false;
     boolean failed_worker = (getWorkerContext().getMyWorkerIndex() == 0) ? true : false;
 
-    boolean attempt = false;
+//    boolean attempt = false;
 
-    if(superstep_to_kill && failed_worker && SimpleShortestPathsComputationCustomWorkerContext.counter > 0){
-      attempt = true;
-      SimpleShortestPathsComputationCustomWorkerContext.counter--;
-    }
+//    if(superstep_to_kill && failed_worker && SimpleShortestPathsComputationCustomWorkerContext.counter > 0){
+//      attempt = true;
+//      SimpleShortestPathsComputationCustomWorkerContext.counter--;
+//    }
 
     if(attempt && superstep_to_kill && failed_worker){
       System.exit(-1);
