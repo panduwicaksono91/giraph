@@ -62,6 +62,7 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
       Vertex<LongWritable, DoubleWritable, FloatWritable> vertex,
       Iterable<DoubleWritable> messages) throws IOException {
     if (getSuperstep() == 0) {
+      System.out.println("Superstep 0, Vertex " + vertex.getId() + " values " + vertex.getValue());
       vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
     }
 

@@ -1619,6 +1619,13 @@ public class BspServiceMaster<I extends WritableComparable,
     }
 
     chosenWorkerInfoList = checkWorkers(); // get healthy workers
+
+    // print the worker
+    System.out.println("Print the worker before assigning:");
+    for(WorkerInfo worker : chosenWorkerInfoList){
+      System.out.println(worker);
+    }
+
     if (chosenWorkerInfoList == null) {
       setJobStateFailed("coordinateSuperstep: Not enough healthy workers for " +
                     "superstep " + getSuperstep());
