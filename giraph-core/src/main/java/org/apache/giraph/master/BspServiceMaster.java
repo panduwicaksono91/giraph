@@ -1115,18 +1115,18 @@ public class BspServiceMaster<I extends WritableComparable,
         fixedPartitionOwners.addAll(partitionOwners);
       }
 
-      System.out.println("Generate fix partition");
-      printPartitionOwners(fixedPartitionOwners);
-
-      System.out.println("Save fix partition to file");
-      printPartitionOwnersToFile(fixedPartitionOwners, "fixedPartitionOwners.txt");
-
-      System.out.println("Read fix partition from file");
-      Collection<PartitionOwner> tempPartitionOwner =
-              readPartitionOwnerFromFile("fixedPartitionOwners.txt");
-
-      System.out.println("Test the written partition");
-      printPartitionOwners(tempPartitionOwner);
+//      System.out.println("Generate fix partition");
+//      printPartitionOwners(fixedPartitionOwners);
+//
+//      System.out.println("Save fix partition to file");
+//      printPartitionOwnersToFile(fixedPartitionOwners, "fixedPartitionOwners.txt");
+//
+//      System.out.println("Read fix partition from file");
+//      Collection<PartitionOwner> tempPartitionOwner =
+//              readPartitionOwnerFromFile("fixedPartitionOwners.txt");
+//
+//      System.out.println("Test the written partition");
+//      printPartitionOwners(tempPartitionOwner);
 
     } else if (getRestartedSuperstep() == getSuperstep()) {
       // If restarted, prepare the checkpoint restart
@@ -1622,9 +1622,7 @@ public class BspServiceMaster<I extends WritableComparable,
 
     // print the worker
     System.out.println("Print the worker before assigning:");
-    for(WorkerInfo worker : chosenWorkerInfoList){
-      System.out.println(worker);
-    }
+    printWorkerInfoList(chosenWorkerInfoList);
 
     if (chosenWorkerInfoList == null) {
       setJobStateFailed("coordinateSuperstep: Not enough healthy workers for " +
@@ -1712,6 +1710,51 @@ public class BspServiceMaster<I extends WritableComparable,
         getSuperstepStateChangedEvent(),
         false)) {
       System.out.println("BSPServiceMaster: fail when doing superstep " + getSuperstep());
+
+
+      // optimistic recovery
+      System.out.println("Print Worker After Fail");
+      List<WorkerInfo> workerAfterFail = new ArrayList<WorkerInfo>();
+
+	  for (WorkerInfo workerInfo : chosenWorkerInfoList) {
+        String workerInfoHealthyPath =
+            getWorkerInfoHealthyPath(getApplicationAttempt(),
+                getSuperstep()) + "/" +
+                workerInfo.getHostnameId();
+        if (getZkExt().exists(workerInfoHealthyPath, true) == null) {
+          LOG.warn("coordinateSuperstep: Chosen worker " +
+              workerInfoHealthyPath +
+              " is no longer valid, failing superstep");
+		  System.out.println("coordinateSuperstep: Chosen worker " +
+              workerInfoHealthyPath +
+              " is no longer valid, failing superstep");
+        } else {
+          workerAfterFail.add(workerInfo);
+        }
+      }
+
+      printWorkerInfoList(workerAfterFail);
+
+      notifyNettyClient();
+	  
+      String workerWroteCheckpointPathTemp =
+              getWorkerWroteCheckpointPath(getApplicationAttempt(),
+                      getSuperstep());
+
+      boolean test = barrierOnWorkerList(finishedWorkerPath, // wait until the superstep is finished
+              workerAfterFail,
+              getSuperstepStateChangedEvent(),
+              false);
+
+
+      System.out.println(test);
+
+      System.out.println(workerWroteCheckpointPathTemp);
+
+      // wait until all alive worker is finished
+
+      setJobStateFailed("optimistic debug");
+
       return SuperstepState.WORKER_FAILURE;
     }
 
@@ -2256,5 +2299,44 @@ public class BspServiceMaster<I extends WritableComparable,
     }
 
     return result;
+  }
+
+  private void printWorkerInfoList(List<WorkerInfo> workers){
+    for(WorkerInfo worker : workers){
+      System.out.println(worker);
+    }
+  }
+
+  private void notifyNettyClient(){
+    String fullFilename = partitionOwnersDir + "/optimistic_signal.txt";
+
+    try {
+      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
+      writer.write("1\n");
+      writer.flush();
+      writer.close();
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+    System.out.println("BSPServiceMaster notifyNettyClient");
+  }
+
+  private void resetNotificationNettyClient(){
+    String fullFilename = partitionOwnersDir + "/optimistic_signal.txt";
+
+    try {
+      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
+      writer.write("0\n");
+      writer.flush();
+      writer.close();
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+
+    System.out.println("BSPServiceMaster resetNotificationNettyClient");
   }
 }

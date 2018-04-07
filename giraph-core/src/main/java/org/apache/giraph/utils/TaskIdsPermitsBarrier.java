@@ -18,13 +18,23 @@
 
 package org.apache.giraph.utils;
 
+import org.apache.giraph.partition.BasicPartitionOwner;
+import org.apache.giraph.partition.PartitionOwner;
+import org.apache.giraph.worker.WorkerInfo;
 import org.apache.hadoop.util.Progressable;
 import org.apache.log4j.Logger;
 
 import com.google.common.collect.Sets;
 
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 /**
  * This barrier is used when we don't know how many events are we waiting on
@@ -116,6 +126,11 @@ public class TaskIdsPermitsBarrier {
               "Waiting for " + waitingOnPermits + " more aggregator requests");
         }
       }
+
+      if(getOptimisticNotification()){
+        logger.info("getOptimisticNotification bypassing waitForRequiredPermits");
+        break;
+      }
     }
 
     // Reset for the next time to use
@@ -151,5 +166,34 @@ public class TaskIdsPermitsBarrier {
   public synchronized void releasePermits(long permits) {
     waitingOnPermits -= permits;
     notifyAll();
+  }
+
+  private boolean getOptimisticNotification(){
+
+    boolean result = false;
+    String file = "/home/pandu/Desktop/windows-share/optimistic_signal.txt";
+	
+	java.nio.file.Path p = Paths.get(file);
+    if(!Files.exists(p)){
+      return false;
+    }
+
+    try {
+      BufferedReader br = new BufferedReader(new FileReader(file));
+      String line = br.readLine();
+	  
+	  System.out.println("TaskIdsPermitsBarrier line: " + line);
+
+      result = (Integer.parseInt(line) == 1) ? true : false;
+
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (IOException e){
+      e.printStackTrace();
+    }
+
+    System.out.println("TaskIdsPermitsBarrier getOptimisticNotification");
+    return result;
+
   }
 }

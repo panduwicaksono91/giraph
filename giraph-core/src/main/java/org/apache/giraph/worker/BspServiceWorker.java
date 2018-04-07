@@ -751,11 +751,11 @@ else[HADOOP_NON_SECURE]*/
     }
 
     // custom write debug
-    System.out.println(System.currentTimeMillis() + " BSPServiceWorker " +
+    System.out.println("BSPServiceWorker " +
             "startSuperstep: addressesAndPartitions" +
             addressesAndPartitions.getWorkerInfos());
     for (PartitionOwner partitionOwner : addressesAndPartitions.getPartitionOwners()) {
-      System.out.println(System.currentTimeMillis() + " BSPServiceWorker " +
+      System.out.println("BSPServiceWorker " +
               partitionOwner.getPartitionId() + " " +
               partitionOwner.getWorkerInfo());
     }

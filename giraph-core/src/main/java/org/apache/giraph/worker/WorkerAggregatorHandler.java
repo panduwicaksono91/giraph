@@ -175,8 +175,10 @@ public class WorkerAggregatorHandler implements WorkerThreadGlobalCommUsage {
           "workers will send their aggregated values " +
           "once they are done with superstep computation");
     }
+
     OwnerAggregatorServerData ownerGlobalCommData =
         serviceWorker.getServerData().getOwnerAggregatorData();
+
     // First send partial aggregated values to their owners and determine
     // which aggregators belong to this worker
     for (Map.Entry<String, Reducer<Object, Writable>> entry :
@@ -196,6 +198,7 @@ public class WorkerAggregatorHandler implements WorkerThreadGlobalCommUsage {
       }
       progressable.progress();
     }
+
     try {
       // Flush
       requestProcessor.flush();
@@ -208,6 +211,8 @@ public class WorkerAggregatorHandler implements WorkerThreadGlobalCommUsage {
     Iterable<Map.Entry<String, Writable>> myReducedValues =
         ownerGlobalCommData.getMyReducedValuesWhenReady(
             getOtherWorkerIdsSet());
+
+    System.out.println("WorkerAggregatorHandler myReducedValues: " + myReducedValues);
 
     // Send final aggregated values to master
     GlobalCommValueOutputStream globalOutput =
@@ -228,12 +233,14 @@ public class WorkerAggregatorHandler implements WorkerThreadGlobalCommUsage {
             entry.getKey(), e);
       }
     }
+
     try {
       requestProcessor.sendReducedValuesToMaster(globalOutput.flush());
     } catch (IOException e) {
       throw new IllegalStateException("finishSuperstep: " +
           "IOException occured while sending aggregators to master", e);
     }
+
     // Wait for master to receive aggregated values before proceeding
     serviceWorker.getWorkerClient().waitAllRequests();
 
