@@ -194,6 +194,5 @@ public class TaskIdsPermitsBarrier {
 
     System.out.println("TaskIdsPermitsBarrier getOptimisticNotification");
     return result;
-
   }
 }

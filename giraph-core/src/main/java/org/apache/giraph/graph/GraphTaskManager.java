@@ -319,6 +319,8 @@ end[PURE_YARN]*/
     // read the input split and load the data partition (getPartitionStore())
     finishedSuperstepStats = serviceWorker.setup();
 
+    LOG.info("execute: setup finished");
+
     superstepTimerContext.stop();
 
     if (collectInputSuperstepStats(finishedSuperstepStats)) {

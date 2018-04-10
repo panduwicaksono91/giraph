@@ -18,10 +18,10 @@
 
 package org.apache.giraph.worker;
 
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -465,6 +465,9 @@ public class BspServiceWorker<I extends WritableComparable,
     // 5. Process any mutations deriving from add edge requests
     // 6. Wait for superstep INPUT_SUPERSTEP to complete.
 
+    LOG.info("setup: getRestartedSuperstep " + getRestartedSuperstep());
+    LOG.info("setup: getSuperstep " + getSuperstep());
+
     // doing a restart, restart the job from command
     if (getRestartedSuperstep() != UNSET_SUPERSTEP) {
       // to load the checkpoint later
@@ -472,6 +475,9 @@ public class BspServiceWorker<I extends WritableComparable,
       return new FinishedSuperstepStats(0, false, 0, 0, true,
           CheckpointStatus.NONE);
     }
+
+    LOG.info("setup: passed getRestartedSuperstep");
+
 
     JSONObject jobState = getJobState();
     if (jobState != null) { // pessimistic recovery
@@ -499,15 +505,28 @@ public class BspServiceWorker<I extends WritableComparable,
       }
     }
 
+    LOG.info("setup: passed json object check");
+
+    LOG.info("setup: print worker info " + workerInfo);
+
+    // if worker info is already acquired
+    // load check point
+    // XXX
+
     // if not restarting job from command or restarting from automated checkpoint
     // do this thing during the setup
 
     // Add the partitions that this worker owns
     Collection<? extends PartitionOwner> masterSetPartitionOwners =
         startSuperstep();
+
+    LOG.info("setup: passed start superstep");
+
     workerGraphPartitioner.updatePartitionOwners(
         getWorkerInfo(), masterSetPartitionOwners); // update the assignment
     getPartitionStore().initialize(); // initialize the partition store
+
+    LOG.info("setup: passed masterSetPartitionOwners ");
 
 /*if[HADOOP_NON_SECURE]
     workerClient.setup();
@@ -646,6 +665,7 @@ else[HADOOP_NON_SECURE]*/
       myHealthPath = getWorkerInfoUnhealthyPath(getApplicationAttempt(),
           getSuperstep());
     }
+
     myHealthPath = myHealthPath + "/" + workerInfo.getHostnameId();
     try {
       myHealthZnode = getZkExt().createExt(
@@ -659,16 +679,23 @@ else[HADOOP_NON_SECURE]*/
           "from previous failure): " + myHealthPath +
           ".  Waiting for change in attempts " +
           "to re-join the application");
-      getApplicationAttemptChangedEvent().waitForTimeoutOrFail(
-          GiraphConstants.WAIT_ZOOKEEPER_TIMEOUT_MSEC.get(
-              getConfiguration()));
-      if (LOG.isInfoEnabled()) {
-        LOG.info("registerHealth: Got application " +
-            "attempt changed event, killing self");
-      }
-      throw new IllegalStateException(
-          "registerHealth: Trying " +
-              "to get the new application attempt by killing self", e);
+
+      // optimistic recovery
+      // change from this
+
+      return;
+//      getApplicationAttemptChangedEvent().waitForTimeoutOrFail(
+//          GiraphConstants.WAIT_ZOOKEEPER_TIMEOUT_MSEC.get(
+//              getConfiguration()));
+//
+//      if (LOG.isInfoEnabled()) {
+//        LOG.info("registerHealth: Got application " +
+//            "attempt changed event, killing self");
+//      }
+//
+//      throw new IllegalStateException(
+//          "registerHealth: Trying " +
+//              "to get the new application attempt by killing self", e);
     } catch (KeeperException e) {
       throw new IllegalStateException("Creating " + myHealthPath +
           " failed with KeeperException", e);
@@ -722,14 +749,20 @@ else[HADOOP_NON_SECURE]*/
 
     registerHealth(getSuperstep()); // register the health
 
+    LOG.info("startSuperstep: passed registerHealth");
+
     // get the partition assignment
     AddressesAndPartitionsWritable addressesAndPartitions =
         addressesAndPartitionsHolder.getElement(getContext());
+
+    LOG.info("startSuperstep: passed AddressesAndPartitionsWritable");
 
     workerInfoList.clear();
     workerInfoList = addressesAndPartitions.getWorkerInfos();
     masterInfo = addressesAndPartitions.getMasterInfo();
     workerServer.resetBytesReceivedPerSuperstep();
+
+    LOG.info("startSuperstep: passed workerInfoList.clear");
 
     if (LOG.isInfoEnabled()) {
       LOG.info("startSuperstep: " + masterInfo);
@@ -893,6 +926,9 @@ else[HADOOP_NON_SECURE]*/
   private void waitForOtherWorkers(String superstepFinishedNode) {
     try {
       while (getZkExt().exists(superstepFinishedNode, true) == null) {
+        // optimistic recovery
+        LOG.info("waitForOtherWorkers: waiting for " + superstepFinishedNode);
+
         getSuperstepFinishedEvent().waitForTimeoutOrFail(
             GiraphConstants.WAIT_FOR_OTHER_WORKERS_TIMEOUT_MSEC.get(
                 getConfiguration()));
@@ -1887,5 +1923,40 @@ else[HADOOP_NON_SECURE]*/
   public void addressesAndPartitionsReceived(
       AddressesAndPartitionsWritable addressesAndPartitions) {
     addressesAndPartitionsHolder.offer(addressesAndPartitions);
+  }
+
+  private boolean getOptimisticNotification(){
+
+    boolean result = false;
+    String file = "/home/pandu/Desktop/windows-share/optimistic_signal.txt";
+
+    java.nio.file.Path p = Paths.get(file);
+    if(!Files.exists(p)){
+      return false;
+    }
+
+    try {
+      BufferedReader br = new BufferedReader(new FileReader(file));
+      String line = br.readLine();
+
+      result = (Integer.parseInt(line) == 1) ? true : false;
+
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (IOException e){
+      e.printStackTrace();
+    }
+
+    return result;
+  }
+
+  /**
+   * Print the PartitionOwner
+   * @author Pandu
+   */
+  private void printPartitionOwners(Collection<PartitionOwner> partitionOwnerColletion){
+    for(PartitionOwner owner : partitionOwnerColletion) {
+      System.out.println("partitionId: " + owner.getPartitionId() + " " + owner.getWorkerInfo().getHostnameId());
+    }
   }
 }

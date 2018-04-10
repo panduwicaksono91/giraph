@@ -1746,10 +1746,11 @@ public class BspServiceMaster<I extends WritableComparable,
               getSuperstepStateChangedEvent(),
               false);
 
-
       System.out.println(test);
 
-      System.out.println(workerWroteCheckpointPathTemp);
+      // check the newly alived worker
+	  TimeUnit.MINUTES.sleep(5);
+
 
       // wait until all alive worker is finished
 
