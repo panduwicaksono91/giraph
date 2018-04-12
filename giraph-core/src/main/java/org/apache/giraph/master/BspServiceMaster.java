@@ -1715,6 +1715,7 @@ public class BspServiceMaster<I extends WritableComparable,
       // optimistic recovery
       System.out.println("Print Worker After Fail");
       List<WorkerInfo> workerAfterFail = new ArrayList<WorkerInfo>();
+      WorkerInfo missingWorker = new WorkerInfo();
 
 	  for (WorkerInfo workerInfo : chosenWorkerInfoList) {
         String workerInfoHealthyPath =
@@ -1722,6 +1723,10 @@ public class BspServiceMaster<I extends WritableComparable,
                 getSuperstep()) + "/" +
                 workerInfo.getHostnameId();
         if (getZkExt().exists(workerInfoHealthyPath, true) == null) {
+          // save the missing worker
+          missingWorker = workerInfo;
+
+          // log the error
           LOG.warn("coordinateSuperstep: Chosen worker " +
               workerInfoHealthyPath +
               " is no longer valid, failing superstep");
@@ -1734,8 +1739,9 @@ public class BspServiceMaster<I extends WritableComparable,
       }
 
       printWorkerInfoList(workerAfterFail);
+	  printWorkerInfoListToFile(chosenWorkerInfoList, "workerInfoList.txt");
 
-      notifyNettyClient();
+      notifyNettyClient(missingWorker);
 	  
       String workerWroteCheckpointPathTemp =
               getWorkerWroteCheckpointPath(getApplicationAttempt(),
@@ -2211,6 +2217,8 @@ public class BspServiceMaster<I extends WritableComparable,
         Math.min(percentage, globalStats.getLowestGraphPercentageInMemory()));
   }
 
+  // optimistic recovery
+
   /**
    * Print the PartitionOwner
    * @author Pandu
@@ -2308,12 +2316,90 @@ public class BspServiceMaster<I extends WritableComparable,
     }
   }
 
-  private void notifyNettyClient(){
+  private void printWorkerInfoListToFile(List<WorkerInfo> workers, String filename){
+    String fullFilename = partitionOwnersDir + "/" + filename;
+
+    java.nio.file.Path p = Paths.get(fullFilename);
+    if(Files.exists(p)){
+      return;
+    }
+
+    try {
+      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
+      for(WorkerInfo workerInfo : workers){
+        // write the worker info
+        writer.write(workerInfo.getHostname() + "\n"); // hostname 0
+        writer.write(workerInfo.getPort() + "\n"); // port 1
+        writer.write(workerInfo.getTaskId() + "\n"); // taskID 2
+        writer.write(workerInfo.getHostOrIp() + "\n"); // hostOrIp 3
+
+        writer.flush();
+      }
+      writer.close();
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+  }
+
+  private List<WorkerInfo> readWorkerInfoListFromFile(String filename){
+    String file = partitionOwnersDir + "/" + filename;
+    ArrayList<WorkerInfo> result = new ArrayList<WorkerInfo>();
+
+    try {
+      BufferedReader br = new BufferedReader(new FileReader(file));
+      int counter = 0;
+      String hostname = "";
+      String port = "";
+      String taskID = "";
+      String hostOrIp = "";
+
+      String line = br.readLine();
+
+      while(line != null){
+        if(counter == 0) { hostname = line; }
+        if(counter == 1) { port = line;}
+        if(counter == 2) { taskID = line; }
+        if(counter == 3) { hostOrIp = line; }
+        counter++;
+
+        if(counter == 4) { // successfully read the data
+          WorkerInfo workerInfo = new WorkerInfo();
+          workerInfo.setHostname(hostname);
+          workerInfo.setPort(Integer.parseInt(port));
+          workerInfo.setTaskId(Integer.parseInt(taskID));
+          workerInfo.setHostOrIp(hostOrIp);
+
+          result.add(workerInfo);
+          counter = 0;
+        }
+
+        line = br.readLine();
+      }
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (IOException e){
+      e.printStackTrace();
+    }
+
+    return result;
+  }
+
+  private void notifyNettyClient(WorkerInfo missingWorker){
     String fullFilename = partitionOwnersDir + "/optimistic_signal.txt";
 
     try {
       PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
       writer.write("1\n");
+
+      // print the missing workerInfo
+      // write the worker info
+      writer.write(missingWorker.getHostname() + "\n"); // hostname 0
+      writer.write(missingWorker.getPort() + "\n"); // port 1
+      writer.write(missingWorker.getTaskId() + "\n"); // taskID 2
+      writer.write(missingWorker.getHostOrIp() + "\n"); // hostOrIp 3
+
       writer.flush();
       writer.close();
     } catch (FileNotFoundException e) {

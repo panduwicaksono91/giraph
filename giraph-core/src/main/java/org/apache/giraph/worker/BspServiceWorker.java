@@ -478,7 +478,6 @@ public class BspServiceWorker<I extends WritableComparable,
 
     LOG.info("setup: passed getRestartedSuperstep");
 
-
     JSONObject jobState = getJobState();
     if (jobState != null) { // pessimistic recovery
       try {
@@ -509,9 +508,44 @@ public class BspServiceWorker<I extends WritableComparable,
 
     LOG.info("setup: print worker info " + workerInfo);
 
-    // if worker info is already acquired
-    // load check point
-    // XXX
+    // optimistic recovery
+    // if worker is restarted
+    if(checkWorkerRestarted()){
+      LOG.info("setup: checkWorkerRestarted");
+      while(!getOptimisticNotification()){
+	    LOG.info("setup: whileLoop");
+        try {
+          TimeUnit.SECONDS.sleep(1);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+      }
+
+      LOG.info("setup: getOptimisticNotification passed");
+
+      // get the info
+      List<WorkerInfo> chosenWorkerInfo = readWorkerInfoListFromFile("workerInfoList.txt");
+      WorkerInfo missingWorker = getOptimisticNotification(true);
+	  LOG.info("setup: print missingWorker " + missingWorker.toString());
+	  
+      // get the index
+      int missingIndex = chosenWorkerInfo.indexOf(missingWorker);
+	  LOG.info("setup: print missingIndex " + missingIndex);
+
+	  // update the workerInfoList
+	  workerInfoList = chosenWorkerInfo;
+	  workerInfoList.get(missingIndex).setHostname(getWorkerInfo().getHostname());
+	  workerInfoList.get(missingIndex).setPort(getWorkerInfo().getPort());
+	  workerInfoList.get(missingIndex).setTaskId(getWorkerInfo().getTaskId());
+	  workerInfoList.get(missingIndex).setHostOrIp(getWorkerInfo().getHostOrIp());
+
+      LOG.info("setup: workerInfoList");
+
+      compensate();
+
+      LOG.info("setup: compensate passed");
+
+    }
 
     // if not restarting job from command or restarting from automated checkpoint
     // do this thing during the setup
@@ -680,22 +714,18 @@ else[HADOOP_NON_SECURE]*/
           ".  Waiting for change in attempts " +
           "to re-join the application");
 
-      // optimistic recovery
-      // change from this
+      getApplicationAttemptChangedEvent().waitForTimeoutOrFail(
+          GiraphConstants.WAIT_ZOOKEEPER_TIMEOUT_MSEC.get(
+              getConfiguration()));
 
-      return;
-//      getApplicationAttemptChangedEvent().waitForTimeoutOrFail(
-//          GiraphConstants.WAIT_ZOOKEEPER_TIMEOUT_MSEC.get(
-//              getConfiguration()));
-//
-//      if (LOG.isInfoEnabled()) {
-//        LOG.info("registerHealth: Got application " +
-//            "attempt changed event, killing self");
-//      }
-//
-//      throw new IllegalStateException(
-//          "registerHealth: Trying " +
-//              "to get the new application attempt by killing self", e);
+      if (LOG.isInfoEnabled()) {
+        LOG.info("registerHealth: Got application " +
+            "attempt changed event, killing self");
+      }
+
+      throw new IllegalStateException(
+          "registerHealth: Trying " +
+              "to get the new application attempt by killing self", e);
     } catch (KeeperException e) {
       throw new IllegalStateException("Creating " + myHealthPath +
           " failed with KeeperException", e);
@@ -709,6 +739,9 @@ else[HADOOP_NON_SECURE]*/
           getSuperstep() + " with " + myHealthZnode +
           " and workerInfo= " + workerInfo);
     }
+
+    // optimistic recovery
+    registerWorker();
   }
 
   /**
@@ -1548,6 +1581,8 @@ else[HADOOP_NON_SECURE]*/
 
   @Override
   public VertexEdgeCount loadCheckpoint(long superstep) {
+
+    LOG.info("loadCheckpoint: superstep " + superstep);
     Path metadataFilePath = getSavedCheckpoint(
         superstep, CheckpointingUtils.CHECKPOINT_METADATA_POSTFIX);
 
@@ -1562,13 +1597,19 @@ else[HADOOP_NON_SECURE]*/
           getFs().open(metadataFilePath);
 
       int partitions = metadataStream.readInt();
+      LOG.info("loadCheckpoint: partitions " + partitions);
+
       List<Integer> partitionIds = new ArrayList<>(partitions);
+
       for (int i = 0; i < partitions; i++) {
         int partitionId = metadataStream.readInt();
         partitionIds.add(partitionId);
+        LOG.info("loadCheckpoint: partitionsIDs " + partitionId);
       }
 
       loadCheckpointVertices(superstep, partitionIds);
+
+      LOG.info("loadCheckpoint: passed loadCheckpointVertices");
 
       getContext().progress();
 
@@ -1578,17 +1619,25 @@ else[HADOOP_NON_SECURE]*/
           getFs().open(checkpointFilePath);
       workerContext.readFields(checkpointStream);
 
+      LOG.info("loadCheckpoint: passed workerContext");
+
       // Load global stats and superstep classes
       GlobalStats globalStats = new GlobalStats();
       SuperstepClasses superstepClasses = SuperstepClasses.createToRead(
           getConfiguration());
+
       String finalizedCheckpointPath = getSavedCheckpointBasePath(superstep) +
           CheckpointingUtils.CHECKPOINT_FINALIZED_POSTFIX;
+
       DataInputStream finalizedStream =
           getFs().open(new Path(finalizedCheckpointPath));
+
       globalStats.readFields(finalizedStream);
+
       superstepClasses.readFields(finalizedStream);
+
       getConfiguration().updateSuperstepClasses(superstepClasses);
+
       getServerData().resetMessageStores();
 
       // TODO: checkpointing messages along with vertices to avoid multiple
@@ -1616,8 +1665,11 @@ else[HADOOP_NON_SECURE]*/
 /*if[HADOOP_NON_SECURE]
       workerClient.setup();
 else[HADOOP_NON_SECURE]*/
-      workerClient.setup(getConfiguration().authenticate());
-/*end[HADOOP_NON_SECURE]*/
+      // optimistic recovery
+      if(!getOptimisticNotification()) {
+        workerClient.setup(getConfiguration().authenticate());
+      }
+      /*end[HADOOP_NON_SECURE]*/
       return new VertexEdgeCount(globalStats.getVertexCount(),
           globalStats.getEdgeCount(), 0);
 
@@ -1925,6 +1977,8 @@ else[HADOOP_NON_SECURE]*/
     addressesAndPartitionsHolder.offer(addressesAndPartitions);
   }
 
+  // optimistic recovery
+
   private boolean getOptimisticNotification(){
 
     boolean result = false;
@@ -1950,6 +2004,56 @@ else[HADOOP_NON_SECURE]*/
     return result;
   }
 
+  private WorkerInfo getOptimisticNotification(boolean flag){
+    WorkerInfo missingWorker = null;
+
+    String file = "/home/pandu/Desktop/windows-share/optimistic_signal.txt";
+
+    java.nio.file.Path p = Paths.get(file);
+    if(!Files.exists(p)){
+      return null;
+    }
+
+    try {
+      BufferedReader br = new BufferedReader(new FileReader(file));
+      int counter = 0;
+      String hostname = "";
+      String port = "";
+      String taskID = "";
+      String hostOrIp = "";
+
+      String line = br.readLine(); // first one is flag
+      line = br.readLine();
+
+      while(line != null){
+        if(counter == 0) { hostname = line; }
+        if(counter == 1) { port = line;}
+        if(counter == 2) { taskID = line; }
+        if(counter == 3) { hostOrIp = line; }
+        counter++;
+
+        if(counter == 4) { // successfully read the data
+          WorkerInfo workerInfo = new WorkerInfo();
+          workerInfo.setHostname(hostname);
+          workerInfo.setPort(Integer.parseInt(port));
+          workerInfo.setTaskId(Integer.parseInt(taskID));
+          workerInfo.setHostOrIp(hostOrIp);
+
+          missingWorker = workerInfo;
+          counter = 0;
+        }
+
+        line = br.readLine();
+      }
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (IOException e){
+      e.printStackTrace();
+    }
+
+    return missingWorker;
+  }
+
   /**
    * Print the PartitionOwner
    * @author Pandu
@@ -1958,5 +2062,104 @@ else[HADOOP_NON_SECURE]*/
     for(PartitionOwner owner : partitionOwnerColletion) {
       System.out.println("partitionId: " + owner.getPartitionId() + " " + owner.getWorkerInfo().getHostnameId());
     }
+  }
+
+  private void compensate(){
+      // load check point
+      loadCheckpoint(0);
+      LOG.info("compensate: loadCheckpoint success");
+
+      LOG.info("setup: numPartitions " + getPartitionStore().getNumPartitions());
+      String partitionID = "";
+
+      for(Integer id: getPartitionStore().getPartitionIds()) {
+        partitionID += ("," + id);
+      };
+
+      LOG.info("setup: ids " + partitionID);
+
+      // compensation function
+      // SimpleShortestPahtsComputationCompensationFunction
+
+      // save checkpoint
+
+  }
+
+  private void registerWorker(){
+    String dir_name = "/home/pandu/Desktop/windows-share/optimistic_dir/";
+    String filename = dir_name + "superstep" + getSuperstep() +
+            "_taskID" +
+            workerInfo.getTaskId() + ".txt";
+
+    try {
+      PrintWriter writer = new PrintWriter(filename, "UTF-8");
+      writer.write("1\n");
+      writer.flush();
+      writer.close();
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+    System.out.println("BSPServiceMaster notifyNettyClient");
+  }
+
+  private boolean checkWorkerRestarted(){
+    boolean result = false;
+
+    String dir_name = "/home/pandu/Desktop/windows-share/optimistic_dir/";
+    String filename = dir_name + "superstep" + getSuperstep() +
+            "_taskID" +
+            workerInfo.getTaskId() + ".txt";
+
+    java.nio.file.Path p = Paths.get(filename);
+    if(Files.exists(p)){
+      result = true;
+    }
+
+    return result;
+  }
+
+  private List<WorkerInfo> readWorkerInfoListFromFile(String filename){
+    String file = "/home/pandu/Desktop/windows-share/" + filename;
+    ArrayList<WorkerInfo> result = new ArrayList<WorkerInfo>();
+
+    try {
+      BufferedReader br = new BufferedReader(new FileReader(file));
+      int counter = 0;
+      String hostname = "";
+      String port = "";
+      String taskID = "";
+      String hostOrIp = "";
+
+      String line = br.readLine();
+
+      while(line != null){
+        if(counter == 0) { hostname = line; }
+        if(counter == 1) { port = line;}
+        if(counter == 2) { taskID = line; }
+        if(counter == 3) { hostOrIp = line; }
+        counter++;
+
+        if(counter == 4) { // successfully read the data
+          WorkerInfo workerInfo = new WorkerInfo();
+          workerInfo.setHostname(hostname);
+          workerInfo.setPort(Integer.parseInt(port));
+          workerInfo.setTaskId(Integer.parseInt(taskID));
+          workerInfo.setHostOrIp(hostOrIp);
+
+          result.add(workerInfo);
+          counter = 0;
+        }
+
+        line = br.readLine();
+      }
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (IOException e){
+      e.printStackTrace();
+    }
+
+    return result;
   }
 }
