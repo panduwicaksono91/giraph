@@ -1740,26 +1740,41 @@ public class BspServiceMaster<I extends WritableComparable,
 
       printWorkerInfoList(workerAfterFail);
 	  printWorkerInfoListToFile(chosenWorkerInfoList, "workerInfoList.txt");
+	  LOG.info("coordinateSuperstep: passed printing workerInfo");
 
       notifyNettyClient(missingWorker);
-	  
+      LOG.info("coordinateSuperstep: passed notifyNettyClient");
+
+      // read the new worker
+      List<WorkerInfo> newWorker = readWorkerInfoListFromFile("newWorker.txt");
+      printWorkerInfoList(newWorker);
+      LOG.info("coordinateSuperstep: passed read newWorker");
+
+
+      // update the choosen worker
+      workerAfterFail.addAll(newWorker);
+      printWorkerInfoList(workerAfterFail);
+      LOG.info("coordinateSuperstep: passed updateChoosenWorker");
+
+      // barrier to wait for the checkpoint
       String workerWroteCheckpointPathTemp =
               getWorkerWroteCheckpointPath(getApplicationAttempt(),
                       getSuperstep());
 
-      boolean test = barrierOnWorkerList(finishedWorkerPath, // wait until the superstep is finished
+      // wait until the checkpoint writing is finished
+      boolean test = barrierOnWorkerList(workerWroteCheckpointPathTemp,
               workerAfterFail,
-              getSuperstepStateChangedEvent(),
+              getWorkerWroteCheckpointEvent(),
               false);
 
-      System.out.println(test);
+      LOG.info("coordinateSuperstep: barrierOnWorkerList passed");
+      // finalize checkpoint
 
-      // check the newly alived worker
+      // set fail job
+
 	  TimeUnit.MINUTES.sleep(5);
 
-
-      // wait until all alive worker is finished
-
+      // stop the program for checking
       setJobStateFailed("optimistic debug");
 
       return SuperstepState.WORKER_FAILURE;
@@ -2311,6 +2326,7 @@ public class BspServiceMaster<I extends WritableComparable,
   }
 
   private void printWorkerInfoList(List<WorkerInfo> workers){
+    System.out.println("printWorkerInfoList");
     for(WorkerInfo worker : workers){
       System.out.println(worker);
     }

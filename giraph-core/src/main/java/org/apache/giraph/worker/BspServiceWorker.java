@@ -523,6 +523,14 @@ public class BspServiceWorker<I extends WritableComparable,
 
       LOG.info("setup: getOptimisticNotification passed");
 
+      // print this worker
+
+      String newWorker = "newWorker.txt";
+      List<WorkerInfo> thisWorker = new ArrayList<WorkerInfo>();
+      thisWorker.add(getWorkerInfo());
+      printWorkerInfoListToFile(thisWorker,newWorker);
+      LOG.info("setup: print this worker to file passed");
+
       // get the info
       List<WorkerInfo> chosenWorkerInfo = readWorkerInfoListFromFile("workerInfoList.txt");
       WorkerInfo missingWorker = getOptimisticNotification(true);
@@ -962,10 +970,21 @@ else[HADOOP_NON_SECURE]*/
         // optimistic recovery
         LOG.info("waitForOtherWorkers: waiting for " + superstepFinishedNode);
 
-        getSuperstepFinishedEvent().waitForTimeoutOrFail(
-            GiraphConstants.WAIT_FOR_OTHER_WORKERS_TIMEOUT_MSEC.get(
-                getConfiguration()));
+        if(getOptimisticNotification()){
+          try {
+            storeCheckpoint();
+          } catch (IOException e) {
+            e.printStackTrace();
+          }
+        }
+
+        getSuperstepFinishedEvent().waitForTimeoutOrFail(2000); // timeout every two seconds
         getSuperstepFinishedEvent().reset();
+
+//        getSuperstepFinishedEvent().waitForTimeoutOrFail(
+//            GiraphConstants.WAIT_FOR_OTHER_WORKERS_TIMEOUT_MSEC.get(
+//                getConfiguration()));
+//        getSuperstepFinishedEvent().reset();
       }
     } catch (KeeperException e) {
       throw new IllegalStateException(
@@ -2174,5 +2193,32 @@ else[HADOOP_NON_SECURE]*/
     }
 
     return result;
+  }
+
+  private void printWorkerInfoListToFile(List<WorkerInfo> workers, String filename){
+    String fullFilename = "/home/pandu/Desktop/windows-share" + "/" + filename;
+
+    java.nio.file.Path p = Paths.get(fullFilename);
+    if(Files.exists(p)){
+      return;
+    }
+
+    try {
+      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
+      for(WorkerInfo workerInfo : workers){
+        // write the worker info
+        writer.write(workerInfo.getHostname() + "\n"); // hostname 0
+        writer.write(workerInfo.getPort() + "\n"); // port 1
+        writer.write(workerInfo.getTaskId() + "\n"); // taskID 2
+        writer.write(workerInfo.getHostOrIp() + "\n"); // hostOrIp 3
+
+        writer.flush();
+      }
+      writer.close();
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
   }
 }
