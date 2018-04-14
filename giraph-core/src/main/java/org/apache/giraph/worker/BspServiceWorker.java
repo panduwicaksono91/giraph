@@ -2069,22 +2069,35 @@ else[HADOOP_NON_SECURE]*/
       loadCheckpoint(0);
       LOG.info("compensate: loadCheckpoint success");
 
-      LOG.info("setup: numPartitions " + getPartitionStore().getNumPartitions());
+      LOG.info("compensate: numPartitions " + getPartitionStore().getNumPartitions());
       String partitionID = "";
 
       for(Integer id: getPartitionStore().getPartitionIds()) {
         partitionID += ("," + id);
       };
 
-      LOG.info("setup: ids " + partitionID);
+      LOG.info("compensate: ids " + partitionID);
 
       // compensation function
       // SimpleShortestPahtsComputationCompensationFunction
+	  
+	  LOG.info("compensate: compensation function passed");
 
       // save checkpoint
-
+    try {
+      LOG.info("compensate: storeCheckpoint start");
+      storeCheckpoint();
+      LOG.info("compensate: storeCheckpoint success");
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 
+  /**
+   * Used to register the current worker with the TaskID in a superstep.
+   * Mandatory because Giraph is starting a worker based on the TaskID not hostname.
+   * @author Pandu Wicaksono
+   */
   private void registerWorker(){
     String dir_name = "/home/pandu/Desktop/windows-share/optimistic_dir/";
     String filename = dir_name + "superstep" + getSuperstep() +
@@ -2101,7 +2114,7 @@ else[HADOOP_NON_SECURE]*/
     } catch (UnsupportedEncodingException e) {
       e.printStackTrace();
     }
-    System.out.println("BSPServiceMaster notifyNettyClient");
+
   }
 
   private boolean checkWorkerRestarted(){

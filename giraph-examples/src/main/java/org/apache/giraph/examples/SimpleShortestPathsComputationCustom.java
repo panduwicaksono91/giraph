@@ -65,6 +65,19 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
       vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
     }
 
+    // compensation function
+    if(getWorkerContext().getMyWorkerIndex() == 0 && getContext().getTaskAttemptID().getId() != 0 &&
+            vertex.getValue().equals(new DoubleWritable(0))){
+      System.out.println("compensation function reached");
+      vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
+    }
+
+    if(getWorkerContext().getMyWorkerIndex() == getMyWorkerIndex()){
+      System.out.println("myWorkerIndex is the same");
+    }
+
+    System.out.println("attempt: " + getContext().getTaskAttemptID().getId() +
+    " superstep: " + getSuperstep() + " myWorkerIndex: " + getWorkerContext().getMyWorkerIndex());
 
 	boolean attempt = (getContext().getTaskAttemptID().getId() == 0) ? true : false;
     boolean superstep_to_kill = (getSuperstep() == getConf().getSuperstepToKill()) ? true : false;
@@ -76,6 +89,7 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
 //      attempt = true;
 //      SimpleShortestPathsComputationCustomWorkerContext.counter--;
 //    }
+
 
     if(attempt && superstep_to_kill && failed_worker){
       System.exit(-1);
