@@ -2013,6 +2013,8 @@ else[HADOOP_NON_SECURE]*/
       String line = br.readLine();
 
       result = (Integer.parseInt(line) == 1) ? true : false;
+	  
+	  br.close();
 
     } catch (FileNotFoundException e) {
       e.printStackTrace();
@@ -2064,6 +2066,8 @@ else[HADOOP_NON_SECURE]*/
 
         line = br.readLine();
       }
+	  
+	  br.close();
     } catch (FileNotFoundException e) {
       e.printStackTrace();
     } catch (IOException e){
@@ -2186,6 +2190,8 @@ else[HADOOP_NON_SECURE]*/
 
         line = br.readLine();
       }
+	  
+	  br.close();
     } catch (FileNotFoundException e) {
       e.printStackTrace();
     } catch (IOException e){

@@ -732,41 +732,70 @@ public class BspServiceMaster<I extends WritableComparable,
    */
   private Collection<PartitionOwner> prepareCheckpointRestart(long superstep)
     throws IOException, KeeperException, InterruptedException {
+
+    LOG.info("prepareCheckpointRestart: starts");
     List<PartitionOwner> partitionOwners = new ArrayList<>();
     FileSystem fs = getFs();
+
     String finalizedCheckpointPath = getSavedCheckpointBasePath(superstep) +
         CheckpointingUtils.CHECKPOINT_FINALIZED_POSTFIX;
     LOG.info("Loading checkpoint from " + finalizedCheckpointPath);
+
     DataInputStream finalizedStream =
         fs.open(new Path(finalizedCheckpointPath));
+
     GlobalStats globalStats = new GlobalStats();
+
     globalStats.readFields(finalizedStream);
+
     updateCounters(globalStats);
+
     SuperstepClasses superstepClasses =
         SuperstepClasses.createToRead(getConfiguration());
+
     superstepClasses.readFields(finalizedStream);
+
     getConfiguration().updateSuperstepClasses(superstepClasses);
+    LOG.info("prepareCheckpointRestart: passed getConfiguration()");
+
     int prefixFileCount = finalizedStream.readInt();
+    LOG.info("prepareCheckpointRestart: prefixFileCount " + prefixFileCount);
 
     String checkpointFile =
         finalizedStream.readUTF();
+    LOG.info("prepareCheckpointRestart: checkpointFile " + checkpointFile);
+
+    LOG.info("prepareCheckpointRestart: prefixFileCount loop");
     for (int i = 0; i < prefixFileCount; ++i) {
       int mrTaskId = finalizedStream.readInt();
+      LOG.info("prepareCheckpointRestart: mrTaskId " + mrTaskId);
 
       DataInputStream metadataStream = fs.open(new Path(checkpointFile +
           "." + mrTaskId + CheckpointingUtils.CHECKPOINT_METADATA_POSTFIX));
+
       long partitions = metadataStream.readInt();
+      LOG.info("prepareCheckpointRestart: partitions " + partitions);
+
       WorkerInfo worker = getWorkerInfoById(mrTaskId);
+      LOG.info("prepareCheckpointRestart: worker " + worker);
+
+      LOG.info("prepareCheckpointRestart: partitions loop ");
       for (long p = 0; p < partitions; ++p) {
         int partitionId = metadataStream.readInt();
+        LOG.info("prepareCheckpointRestart: partitionId " + partitionId);
+
         PartitionOwner partitionOwner = new BasicPartitionOwner(partitionId,
             worker);
         partitionOwners.add(partitionOwner);
+
         LOG.info("prepareCheckpointRestart partitionId=" + partitionId +
             " assigned to " + partitionOwner);
       }
+
+      LOG.info("prepareCheckpointRestart: finish");
       metadataStream.close();
     }
+
     //Ordering appears to be important as of right now we rely on this ordering
     //in WorkerGraphPartitioner
     Collections.sort(partitionOwners, new Comparator<PartitionOwner>() {
@@ -781,6 +810,8 @@ public class BspServiceMaster<I extends WritableComparable,
     aggregatorTranslation.readFields(finalizedStream);
     masterCompute.readFields(finalizedStream);
     finalizedStream.close();
+
+    LOG.info("prepareCheckpointRestart: finish");
 
     return partitionOwners;
   }
@@ -1063,6 +1094,8 @@ public class BspServiceMaster<I extends WritableComparable,
           finalizedCheckpointPath);
     }
 
+    LOG.info("finalizeCheckpoint: finalizedCheckpointPath " + finalizedCheckpointPath.getName());
+
     // Format:
     // <global statistics>
     // <superstep classes>
@@ -1075,19 +1108,33 @@ public class BspServiceMaster<I extends WritableComparable,
 
     String superstepFinishedNode =
         getSuperstepFinishedPath(getApplicationAttempt(), superstep - 1);
+    LOG.info("finalizeCheckpoint: superstepFinishedNode " + superstepFinishedNode);
+
     finalizedOutputStream.write(
         getZkExt().getData(superstepFinishedNode, false, null));
+    LOG.info("finalizeCheckpoint: superstepFinishedNode data " +
+            getZkExt().getData(superstepFinishedNode, false, null));
 
     finalizedOutputStream.writeInt(chosenWorkerInfoList.size());
+    LOG.info("finalizeCheckpoint: chosenWorkerInfoList.size() " + chosenWorkerInfoList.size());
+
     finalizedOutputStream.writeUTF(getCheckpointBasePath(superstep));
+    LOG.info("finalizeCheckpoint: getCheckpointBasePath " + getCheckpointBasePath(superstep));
+
     for (WorkerInfo chosenWorkerInfo : chosenWorkerInfoList) {
       finalizedOutputStream.writeInt(getWorkerId(chosenWorkerInfo));
     }
+
     globalCommHandler.getAggregatorHandler().write(finalizedOutputStream);
+
     aggregatorTranslation.write(finalizedOutputStream);
+
     masterCompute.write(finalizedOutputStream);
+
     finalizedOutputStream.close();
+
     lastCheckpointedSuperstep = superstep;
+
     GiraphStats.getInstance().
         getLastCheckpointedSuperstep().setValue(superstep);
   }
@@ -1110,10 +1157,10 @@ public class BspServiceMaster<I extends WritableComparable,
       }
 
       // use a fixed partition owner
-      if(fixedPartitionOwners == null){
-        fixedPartitionOwners = new ArrayList<PartitionOwner>();
-        fixedPartitionOwners.addAll(partitionOwners);
-      }
+//      if(fixedPartitionOwners == null){
+//        fixedPartitionOwners = new ArrayList<PartitionOwner>();
+//        fixedPartitionOwners.addAll(partitionOwners);
+//      }
 
 //      System.out.println("Generate fix partition");
 //      printPartitionOwners(fixedPartitionOwners);
@@ -1131,7 +1178,9 @@ public class BspServiceMaster<I extends WritableComparable,
     } else if (getRestartedSuperstep() == getSuperstep()) {
       // If restarted, prepare the checkpoint restart
       try {
+        LOG.info("assignPartitionOwners before prepareCheckpointRestart");
         partitionOwners = prepareCheckpointRestart(getSuperstep());
+        LOG.info("assignPartitionOwners passed prepareCheckpointRestart");
       } catch (IOException e) {
         throw new IllegalStateException(
             "assignPartitionOwners: IOException on preparing", e);
@@ -1162,9 +1211,13 @@ public class BspServiceMaster<I extends WritableComparable,
           allPartitionStatsList);
     }
 
+    LOG.info("assignPartitionOwners before checkPartitions");
+
     // simple check of the partition
     // check whether the id is valid (not < 0 or not >= partitionOwnerSize)
     checkPartitions(masterGraphPartitioner.getCurrentPartitionOwners());
+
+    LOG.info("assignPartitionOwners before checkPartitions");
 
     // There will be some exchange of partitions
     // This is only generating the path in Zookeeper
@@ -1746,7 +1799,18 @@ public class BspServiceMaster<I extends WritableComparable,
       LOG.info("coordinateSuperstep: passed notifyNettyClient");
 
       // read the new worker
-      List<WorkerInfo> newWorker = readWorkerInfoListFromFile("newWorker.txt");
+      List<WorkerInfo> newWorker = null;
+	  while(newWorker == null){
+	    LOG.info("coordinateSuperstep: while loop read newWorker");
+		try {
+          TimeUnit.SECONDS.sleep(1);
+        } catch (InterruptedException e) {
+          e.printStackTrace();
+        }
+		
+		newWorker = readWorkerInfoListFromFile("newWorker.txt");
+	  }
+	  
       printWorkerInfoList(newWorker);
       LOG.info("coordinateSuperstep: passed read newWorker");
 
@@ -1762,20 +1826,35 @@ public class BspServiceMaster<I extends WritableComparable,
                       getSuperstep());
 
       // wait until the checkpoint writing is finished
-      boolean test = barrierOnWorkerList(workerWroteCheckpointPathTemp,
+      barrierOnWorkerList(workerWroteCheckpointPathTemp,
               workerAfterFail,
               getWorkerWroteCheckpointEvent(),
               false);
 
       LOG.info("coordinateSuperstep: barrierOnWorkerList passed");
+
       // finalize checkpoint
+      try {
+        finalizeCheckpoint(getSuperstep(), chosenWorkerInfoList);
+      } catch (IOException e) {
+        throw new IllegalStateException(
+                "coordinateSuperstep: IOException on finalizing checkpoint",
+                e);
+      }
+
+      LOG.info("coordinateSuperstep: finalizeCheckpoint passed");
+
+      deleteOptimisticFile();
+      LOG.info("coordinateSuperstep: deleteOptimisticFile passed");
+	  
+	  resetNotificationNettyClient();
 
       // set fail job
 
-	  TimeUnit.MINUTES.sleep(5);
+//	  TimeUnit.MINUTES.sleep(5);
 
       // stop the program for checking
-      setJobStateFailed("optimistic debug");
+//      setJobStateFailed("optimistic debug");
 
       return SuperstepState.WORKER_FAILURE;
     }
@@ -2393,6 +2472,7 @@ public class BspServiceMaster<I extends WritableComparable,
 
         line = br.readLine();
       }
+	  br.close();
     } catch (FileNotFoundException e) {
       e.printStackTrace();
     } catch (IOException e){
@@ -2441,5 +2521,39 @@ public class BspServiceMaster<I extends WritableComparable,
     }
 
     System.out.println("BSPServiceMaster resetNotificationNettyClient");
+  }
+
+  private void deleteOptimisticFile(){
+	LOG.info("deleteOptimisticFile: starts");
+    String dir = partitionOwnersDir;
+    String optimistic_signaltxt = "/optimistic_signal.txt";
+    String workerInfoListtxt = "/workerInfoList.txt";
+    String newWorkertxt = "/newWorker.txt";
+
+
+    File file = new File(dir + optimistic_signaltxt);
+	LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
+    file.delete();
+	  
+    file = new File(dir + workerInfoListtxt);
+	LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
+	file.delete();
+
+    file = new File(dir + newWorkertxt);
+	LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));      
+	file.delete();
+
+    String optimistic_dir = partitionOwnersDir + "/optimistic_dir/";
+    File optimistic_directory = new File(optimistic_dir);
+
+	LOG.info("deleteOptimisticFile: for loop delete file");
+    for(File tmpFile: optimistic_directory.listFiles()) {
+	  LOG.info("deleteOptimisticFile: try to delete file " + tmpFile.toPath());
+      if (!tmpFile.isDirectory()) {
+        tmpFile.delete();
+		LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
+      }
+    }
+
   }
 }
