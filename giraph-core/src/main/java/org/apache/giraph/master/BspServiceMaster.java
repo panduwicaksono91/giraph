@@ -1791,10 +1791,13 @@ public class BspServiceMaster<I extends WritableComparable,
         }
       }
 
+	  System.out.println("workerAfterFail");
       printWorkerInfoList(workerAfterFail);
+	  System.out.println("print worker info list to file");
 	  printWorkerInfoListToFile(chosenWorkerInfoList, "workerInfoList.txt");
 	  LOG.info("coordinateSuperstep: passed printing workerInfo");
 
+	  System.out.println("notify Netty client");
       notifyNettyClient(missingWorker);
       LOG.info("coordinateSuperstep: passed notifyNettyClient");
 
@@ -1811,12 +1814,14 @@ public class BspServiceMaster<I extends WritableComparable,
 		newWorker = readWorkerInfoListFromFile("newWorker.txt");
 	  }
 	  
+	  System.out.println("print new worker");
       printWorkerInfoList(newWorker);
       LOG.info("coordinateSuperstep: passed read newWorker");
 
 
       // update the choosen worker
       workerAfterFail.addAll(newWorker);
+	  System.out.println("update worker after fail");
       printWorkerInfoList(workerAfterFail);
       LOG.info("coordinateSuperstep: passed updateChoosenWorker");
 
@@ -1829,7 +1834,7 @@ public class BspServiceMaster<I extends WritableComparable,
       barrierOnWorkerList(workerWroteCheckpointPathTemp,
               workerAfterFail,
               getWorkerWroteCheckpointEvent(),
-              false);
+              true);
 
       LOG.info("coordinateSuperstep: barrierOnWorkerList passed");
 
