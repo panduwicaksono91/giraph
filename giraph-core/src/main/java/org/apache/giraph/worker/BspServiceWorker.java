@@ -188,6 +188,10 @@ public class BspServiceWorker<I extends WritableComparable,
   /** Memory observer */
   private final MemoryObserver memoryObserver;
 
+  // optimistic recovery
+  WorkerInfo missingWorker;
+  List<PartitionStats> tmpPartitionStatsList;
+
   /**
    * Constructor for setting up the worker.
    *
@@ -533,7 +537,7 @@ public class BspServiceWorker<I extends WritableComparable,
 
       // get the info
       List<WorkerInfo> chosenWorkerInfo = readWorkerInfoListFromFile("workerInfoList.txt");
-      WorkerInfo missingWorker = getOptimisticNotification(true);
+      missingWorker = getOptimisticNotification(true);
 	  LOG.info("setup: print missingWorker " + missingWorker.toString());
 	  
       // get the index
@@ -853,9 +857,12 @@ else[HADOOP_NON_SECURE]*/
     //    of this worker
     // 5. Let the master know it is finished.
     // 6. Wait for the master's superstep info, and check if done
+    LOG.info("finishSuperstep: start");
     waitForRequestsToFinish();
+    LOG.info("finishSuperstp: passed waitForRequestToFinish");
 
     getGraphTaskManager().notifyFinishedCommunication();
+    LOG.info("finishSuperstp: passed notifyFinishedCommunication");
 
     long workerSentMessages = 0;
     long workerSentMessageBytes = 0;
@@ -865,18 +872,21 @@ else[HADOOP_NON_SECURE]*/
       workerSentMessageBytes += partitionStats.getMessageBytesSentCount();
       localVertices += partitionStats.getVertexCount();
     }
+    LOG.info("finishSuperstp: passed partitionStatsList for loop");
 
     if (getSuperstep() != INPUT_SUPERSTEP) {
       postSuperstepCallbacks();
     }
 
     globalCommHandler.finishSuperstep(workerAggregatorRequestProcessor);
+    LOG.info("finishSuperstp: passed globalCommHandler");
 
     MessageStore<I, Writable> incomingMessageStore =
         getServerData().getIncomingMessageStore();
     if (incomingMessageStore instanceof AsyncMessageStoreWrapper) {
       ((AsyncMessageStoreWrapper) incomingMessageStore).waitToComplete();
     }
+    LOG.info("finishSuperstp: passed incomingMessageStore");
 
     if (LOG.isInfoEnabled()) {
       LOG.info("finishSuperstep: Superstep " + getSuperstep() +
@@ -890,6 +900,7 @@ else[HADOOP_NON_SECURE]*/
     }
     writeFinshedSuperstepInfoToZK(partitionStatsList,
       workerSentMessages, workerSentMessageBytes);
+    LOG.info("finishSuperstp: passed writeFinshedSuperstepIntoToZK");
 
     LoggerUtils.setStatusAndLog(getContext(), LOG, Level.INFO,
         "finishSuperstep: (waiting for rest " +
@@ -900,6 +911,8 @@ else[HADOOP_NON_SECURE]*/
 
     String superstepFinishedNode =
         getSuperstepFinishedPath(getApplicationAttempt(), getSuperstep());
+
+    tmpPartitionStatsList = partitionStatsList;
 
     waitForOtherWorkers(superstepFinishedNode);
 
@@ -971,11 +984,15 @@ else[HADOOP_NON_SECURE]*/
         LOG.info("waitForOtherWorkers: waiting for " + superstepFinishedNode);
 
         if(getOptimisticNotification()){
+          printPartitionStatsListToFile(tmpPartitionStatsList, getWorkerInfo());
+
           try {
             storeCheckpoint();
           } catch (IOException e) {
             e.printStackTrace();
           }
+		  
+		  TimeUnit.SECONDS.sleep(300000);
         }
 
         getSuperstepFinishedEvent().waitForTimeoutOrFail(2000); // timeout every two seconds
@@ -2106,14 +2123,87 @@ else[HADOOP_NON_SECURE]*/
 	  
 	  LOG.info("compensate: compensation function passed");
 
+	  // copied finishSuperstep
+      // Generate the partition stats for the input superstep and process
+      // if necessary
+      List<PartitionStats> partitionStatsList =
+              new ArrayList<PartitionStats>();
+      PartitionStore<I, V, E> partitionStore = getPartitionStore();
+      for (Integer partitionId : partitionStore.getPartitionIds()) {
+        PartitionStats partitionStats =
+                new PartitionStats(partitionId,
+                        partitionStore.getPartitionVertexCount(partitionId),
+                        0,
+                        partitionStore.getPartitionEdgeCount(partitionId),
+                        0,
+                        0,
+                        workerInfo.getHostnameId());
+//                        missingWorker.getHostnameId());
+        partitionStatsList.add(partitionStats);
+      }
+//      workerGraphPartitioner.finalizePartitionStats(
+//              partitionStatsList, getPartitionStore());
+
+      // finish superstep
+      long workerSentMessages = 0;
+      long workerSentMessageBytes = 0;
+      long localVertices = 0;
+      for (PartitionStats partitionStats : partitionStatsList) {
+        workerSentMessages += partitionStats.getMessagesSentCount();
+        workerSentMessageBytes += partitionStats.getMessageBytesSentCount();
+        localVertices += partitionStats.getVertexCount();
+      }
+
+//      writeFinshedSuperstepInfoToZK(partitionStatsList, workerSentMessages, workerSentMessageBytes);
+      WorkerSuperstepMetrics metrics = new WorkerSuperstepMetrics();
+      metrics.readFromRegistry();
+      byte[] metricsBytes = WritableUtils.writeToByteArray(metrics);
+
+      JSONObject workerFinishedInfoObj = new JSONObject();
+      try {
+        workerFinishedInfoObj.put(JSONOBJ_NUM_MESSAGES_KEY, workerSentMessages);
+        workerFinishedInfoObj.put(JSONOBJ_NUM_MESSAGE_BYTES_KEY,
+                workerSentMessageBytes);
+        workerFinishedInfoObj.put(JSONOBJ_METRICS_KEY,
+                Base64.encodeBytes(metricsBytes));
+      } catch (JSONException e) {
+        throw new RuntimeException(e);
+      }
+
+      String finishedWorkerPath =
+              getWorkerFinishedPath(getApplicationAttempt(), getSuperstep()) +
+                      "/" + missingWorker.getHostnameId();
+      try {
+        getZkExt().createExt(finishedWorkerPath,
+                workerFinishedInfoObj.toString().getBytes(Charset.defaultCharset()),
+                Ids.OPEN_ACL_UNSAFE,
+                CreateMode.PERSISTENT,
+                true);
+      } catch (KeeperException.NodeExistsException e) {
+        LOG.warn("finishSuperstep: finished worker path " +
+                finishedWorkerPath + " already exists!");
+      } catch (KeeperException e) {
+        throw new IllegalStateException("Creating " + finishedWorkerPath +
+                " failed with KeeperException", e);
+      } catch (InterruptedException e) {
+        throw new IllegalStateException("Creating " + finishedWorkerPath +
+                " failed with InterruptedException", e);
+      }
+
+      LOG.info("compensate: finishSuperstep passed");
+
+      // save the PartitionStats
+      printPartitionStatsListToFile(partitionStatsList,getWorkerInfo());
+      LOG.info("compensate: printPartitionStatsListToFile passed");
+
       // save checkpoint
-    try {
-      LOG.info("compensate: storeCheckpoint start");
-      storeCheckpoint();
-      LOG.info("compensate: storeCheckpoint success");
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
+      try {
+        LOG.info("compensate: storeCheckpoint start");
+        storeCheckpoint();
+        LOG.info("compensate: storeCheckpoint success");
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
   }
 
   /**
@@ -2226,5 +2316,39 @@ else[HADOOP_NON_SECURE]*/
     } catch (UnsupportedEncodingException e) {
       e.printStackTrace();
     }
+  }
+
+  private void printPartitionStatsListToFile(List<PartitionStats> statsList, WorkerInfo worker){
+    String fullFilename = "/home/pandu/Desktop/windows-share/partitionStats_dir/"
+            + worker.getHostnameId() + ".txt";
+
+    java.nio.file.Path p = Paths.get(fullFilename);
+    if(Files.exists(p)){
+      return;
+    }
+
+    try {
+      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
+      for(PartitionStats stat : statsList){
+        // write the PartitionStats
+        writer.write( stat.getPartitionId() + "\n"); // partitionId 0
+        writer.write( stat.getVertexCount() + "\n"); // vertexCount 1
+        writer.write( stat.getFinishedVertexCount() + "\n"); // finishedVertexCount 2
+        writer.write( stat.getEdgeCount() + "\n"); // edgeCount 3
+        writer.write( stat.getMessagesSentCount() + "\n"); // messagesSentCount 4
+        writer.write( stat.getMessageBytesSentCount() + "\n"); // messageBytesSentCount 5
+        writer.write( stat.getComputeMs() + "\n"); // computeMs 6
+        writer.write( stat.getWorkerHostnameId() + "\n"); // workerHostnameId 7
+        writer.flush();
+      }
+      writer.close();
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+
+    LOG.info("printPartitionStatsListToFile finish");
+
   }
 }

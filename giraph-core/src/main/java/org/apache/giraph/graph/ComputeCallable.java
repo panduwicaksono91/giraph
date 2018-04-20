@@ -325,6 +325,7 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
         }
       } else {
         int count = 0;
+
         for (Vertex<I, V, E> vertex : partition) {
           // If out-of-core mechanism is used, check whether this thread
           // can stay active or it should temporarily suspend and stop
@@ -338,6 +339,13 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
           if (vertex.isHalted() && !Iterables.isEmpty(messages)) {
             vertex.wakeUp();
           }
+
+          // optimistic recovery
+          if(vertex.isHalted() &&
+                  (serviceWorker.getSuperstep() == serviceWorker.getRestartedSuperstep())){
+            vertex.wakeUp();
+          }
+
           if (!vertex.isHalted()) {
             context.progress();
             computation.compute(vertex, messages);

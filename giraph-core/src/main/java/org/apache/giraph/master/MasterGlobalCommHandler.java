@@ -105,4 +105,13 @@ public class MasterGlobalCommHandler implements MasterGlobalCommUsage {
     return Iterables.concat(
         partitionStats.getElements(numWorkers, progressable));
   }
+
+  /**
+   * Optimistic Recovery
+   * To reset the partitionStats
+   * @author Pandu Wicaksono
+   */
+  public void resetPartitionStats(){
+    partitionStats.clearElements();
+  }
 }

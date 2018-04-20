@@ -18,9 +18,12 @@
 
 package org.apache.giraph.examples;
 
+import com.google.common.collect.Iterables;
 import org.apache.giraph.conf.LongConfOption;
+import org.apache.giraph.counters.GiraphStats;
 import org.apache.giraph.edge.Edge;
 import org.apache.giraph.graph.BasicComputation;
+import org.apache.giraph.graph.GlobalStats;
 import org.apache.giraph.graph.Vertex;
 import org.apache.giraph.worker.WorkerContext;
 import org.apache.hadoop.io.DoubleWritable;
@@ -41,7 +44,7 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
     LongWritable, DoubleWritable, FloatWritable, DoubleWritable> {
   /** The shortest paths id */
   public static final LongConfOption SOURCE_ID =
-      new LongConfOption("SimpleShortestPathsVertex.sourceId", 1,
+      new LongConfOption("SimpleShortestPathsVertex.sourceId", 0,
           "The shortest paths id");
   /** Class logger */
   private static final Logger LOG =
@@ -65,33 +68,41 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
       vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
     }
 
-    // compensation function
-    if(getWorkerContext().getMyWorkerIndex() == 0 && getContext().getTaskAttemptID().getId() != 0 &&
-            vertex.getValue().equals(new DoubleWritable(0))){
-      System.out.println("compensation function reached");
-      vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
+    if(compensationFunctionEnabled()){
+      System.out.println("Compensate function in superstep " + getSuperstep()
+              + " at attempt " + getContext().getTaskAttemptID().getId());
+      
+	  
+//	  compensateVertex(vertex);
+		// for the failed worker, the initial value of all vertex is 0
+		if(vertex.getValue().equals(new DoubleWritable(0))){
+		  System.out.println("Compensate function vertex " + vertex.getId() + " by resetting values");
+		  vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
+		} else {
+
+		  System.out.println("Compensate function vertex " + vertex.getId() + " by sending message");
+		  // for the success worker, send messages to their edges
+		  
+		  for (Edge<LongWritable, FloatWritable> edge : vertex.getEdges()) {
+			double distance = vertex.getValue().get() + edge.getValue().get();
+			if (LOG.isDebugEnabled()) {
+			  LOG.debug("Vertex " + vertex.getId() + " sent to " +
+				  edge.getTargetVertexId() + " = " + distance);
+			}
+
+			System.out.println(getSuperstep() + " " + getMyWorkerIndex() + " " + getConf().getLocalHostname()
+					+ " " + getConf().getTaskPartition() + " " +
+					"Vertex " + vertex.getId() + " sent to " +
+					edge.getTargetVertexId() + " = " + distance);
+			sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
+		  }
+		}
     }
 
-    if(getWorkerContext().getMyWorkerIndex() == getMyWorkerIndex()){
-      System.out.println("myWorkerIndex is the same");
-    }
-
-    System.out.println("attempt: " + getContext().getTaskAttemptID().getId() +
-    " superstep: " + getSuperstep() + " myWorkerIndex: " + getWorkerContext().getMyWorkerIndex());
-
-	boolean attempt = (getContext().getTaskAttemptID().getId() == 0) ? true : false;
-    boolean superstep_to_kill = (getSuperstep() == getConf().getSuperstepToKill()) ? true : false;
-    boolean failed_worker = (getWorkerContext().getMyWorkerIndex() == 0) ? true : false;
-
-//    boolean attempt = false;
-
-//    if(superstep_to_kill && failed_worker && SimpleShortestPathsComputationCustomWorkerContext.counter > 0){
-//      attempt = true;
-//      SimpleShortestPathsComputationCustomWorkerContext.counter--;
-//    }
-
-
-    if(attempt && superstep_to_kill && failed_worker){
+    // check whether to kill this process or not
+    if(killProcessEnabled(getConf().getSuperstepToKill())){
+      System.out.println("Kill process in superstep " + getSuperstep()
+              + " at attempt " + getContext().getTaskAttemptID().getId());
       System.exit(-1);
     }
 
@@ -105,9 +116,8 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
       LOG.debug("Vertex " + vertex.getId() + " got minDist = " + minDist +
           " vertex value = " + vertex.getValue());
     }
-    System.out.println(getMyWorkerIndex() + " " + getConf().getLocalHostname() + " " +
-            getConf().getLocalHostOrIp()
-            + " " + getConf().getPartitionClass() + " " + getConf().getTaskPartition() + " " +
+    System.out.println(getSuperstep() + " " + getMyWorkerIndex() + " " + getConf().getLocalHostname()
+            + " " + getConf().getTaskPartition() + " " +
             "Vertex " + vertex.getId() + " got minDist = " + minDist +
             " vertex value = " + vertex.getValue());
 
@@ -120,14 +130,81 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
               edge.getTargetVertexId() + " = " + distance);
         }
 
-        System.out.println(getMyWorkerIndex() + " " + getConf().getLocalHostname() + " " +
-                getConf().getLocalHostOrIp()
-                + " " + getConf().getPartitionClass() + " " + getConf().getTaskPartition() + " " +
+        System.out.println(getSuperstep() + " " + getMyWorkerIndex() + " " + getConf().getLocalHostname()
+                + " " + getConf().getTaskPartition() + " " +
                 "Vertex " + vertex.getId() + " sent to " +
                 edge.getTargetVertexId() + " = " + distance);
         sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
       }
     }
+
     vertex.voteToHalt();
+
+  }
+
+  /**
+   * This method gives instruction to kill the process and simulate failure.
+   *
+   * @author Pandu Wicaksono
+   * @return instruction to kill this process
+   */
+  private boolean killProcessEnabled(int superstep){
+    boolean result = false;
+
+    boolean attempt = (getContext().getTaskAttemptID().getId() == 0) ? true : false;
+    boolean superstep_to_kill = (getSuperstep() == superstep) ? true : false;
+    boolean failed_worker = (getWorkerContext().getMyWorkerIndex() == 0) ? true : false;
+
+    result = (attempt && superstep_to_kill && failed_worker);
+
+    return result;
+  }
+
+  /**
+   * This method checks whether we need to apply compensation function or not.
+   *
+   * @author Pandu Wicaksono
+   * @return
+   */
+  private boolean compensationFunctionEnabled(){
+    boolean result = false;
+	
+	int numberOfAttempt = getContext().getTaskAttemptID().getId();
+	long superstep = getSuperstep();
+	
+	System.out.println("Check compensationFunctionEnabled workerID " + getMyWorkerIndex() + 
+	" attempt " + numberOfAttempt + " superstep " + superstep);
+
+    // first attempt don't have to apply compensation function
+    if(numberOfAttempt == 0){
+      return false;
+    }
+
+    // aligns the failed superstep with the number of attempt
+	
+	// for alive worker
+    if(getMyWorkerIndex() != 0 && numberOfAttempt == 1 && superstep == 2){
+      result = true;
+    }
+	
+	// for failed worker
+	if(getMyWorkerIndex() == 0 && numberOfAttempt == 2 && superstep == 2){
+      result = true;
+    }
+
+    return result;
+  }
+
+  private void compensateVertex(Vertex<LongWritable, DoubleWritable, FloatWritable> vertex){
+    // for the failed worker, the initial value of all vertex is 0
+    if(vertex.getValue().equals(new DoubleWritable(0))){
+      System.out.println("Compensate function vertex " + vertex.getId() + " by resetting values");
+      vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
+      return;
+    }
+
+    System.out.println("Compensate function vertex " + vertex.getId() + " by sending message");
+    // for the success worker, send messages to their edges
+    sendMessageToAllEdges(vertex, vertex.getValue());
   }
 }

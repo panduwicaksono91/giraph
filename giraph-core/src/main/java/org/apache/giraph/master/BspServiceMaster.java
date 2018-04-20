@@ -938,8 +938,10 @@ public class BspServiceMaster<I extends WritableComparable,
    * @return Global statistics aggregated on all worker statistics
    */
   private GlobalStats aggregateWorkerStats(long superstep) {
-    ImmutableClassesGiraphConfiguration conf = getConfiguration();
-
+    LOG.info("aggregateWorkerStats: starts");
+	
+	ImmutableClassesGiraphConfiguration conf = getConfiguration();
+	
     GlobalStats globalStats = new GlobalStats();
     // Get the stats from the all the worker selected nodes
     String workerFinishedPath =
@@ -956,6 +958,8 @@ public class BspServiceMaster<I extends WritableComparable,
       throw new IllegalStateException(
           "aggregateWorkerStats: InterruptedException", e);
     }
+	
+	LOG.info("aggregateWorkerStats: passed workerFinishedPathList");
 
     AggregatedMetrics aggregatedMetrics = new AggregatedMetrics();
 
@@ -1007,14 +1011,31 @@ public class BspServiceMaster<I extends WritableComparable,
             "aggregateWorkerStats: IOException", e);
       }
     }
+	
+	LOG.info("aggregateWorkerStats: passed workerFinishedPathList aggregate metrics");
 
     allPartitionStatsList.clear();
-    Iterable<PartitionStats> statsList = globalCommHandler.getAllPartitionStats(
+    Iterable<PartitionStats> statsList = null;
+
+    LOG.info("aggregateWorkerStats: start getAllPartitionStats");
+
+    if(!getOptimisticNotification()){
+      LOG.info("aggregateWorkerStats: workerFinishedPathList.size()" + workerFinishedPathList.size());
+      System.out.println("check getAllPartitionStats in superstep " +  getSuperstep());
+      statsList = globalCommHandler.getAllPartitionStats(
         workerFinishedPathList.size(), getContext());
+    } else {
+      // optimistic recovery
+      statsList = readPartitionStatsListFromFile();
+      globalCommHandler.resetPartitionStats();
+    }
+
     for (PartitionStats partitionStats : statsList) {
       globalStats.addPartitionStats(partitionStats);
       allPartitionStatsList.add(partitionStats);
     }
+	
+	LOG.info("aggregateWorkerStats: passed allPartitionStatsList");
 
     if (conf.metricsEnabled()) {
       if (GiraphConstants.METRICS_DIRECTORY.isDefaultValue(conf)) {
@@ -1108,6 +1129,14 @@ public class BspServiceMaster<I extends WritableComparable,
 
     String superstepFinishedNode =
         getSuperstepFinishedPath(getApplicationAttempt(), superstep - 1);
+
+    // optimistic recovery
+    if(getOptimisticNotification()){
+      LOG.info("finalizeCheckpoint: optimistic changes");
+      superstepFinishedNode =
+              getSuperstepFinishedPath(getApplicationAttempt(), superstep);
+    }
+
     LOG.info("finalizeCheckpoint: superstepFinishedNode " + superstepFinishedNode);
 
     finalizedOutputStream.write(
@@ -1467,8 +1496,12 @@ public class BspServiceMaster<I extends WritableComparable,
             LOG.error("barrierOnWorkerList: no results arived from " +
                           "worker that was pronounced dead: " + deadWorker +
                           " on superstep " + getSuperstep());
-            return false;
-          }
+			
+			// optimistic recovery
+			if(!ignoreDeath) {
+				return false;
+			}
+		  }
         }
 
         // wall-clock time skew is ignored
@@ -1837,6 +1870,24 @@ public class BspServiceMaster<I extends WritableComparable,
               true);
 
       LOG.info("coordinateSuperstep: barrierOnWorkerList passed");
+
+      // add finishedSuperstep
+      GlobalStats tmpGlobalStats = aggregateWorkerStats(getSuperstep());
+      LOG.info("coordinateSuperstep: tmpGlobalStats passed");
+
+      String superstepFinishedNode =
+              getSuperstepFinishedPath(getApplicationAttempt(), getSuperstep());
+
+      SuperstepClasses tmpSuperstepClasses =
+              prepareMasterCompute(getSuperstep() + 1);
+      LOG.info("coordinateSuperstep: tmpSuperstepClasses passed");
+
+      doMasterCompute();
+      LOG.info("coordinateSuperstep: doMasterCompute passed");
+
+      WritableUtils.writeToZnode(
+              getZkExt(), superstepFinishedNode, -1, tmpGlobalStats, tmpSuperstepClasses);
+      LOG.info("coordinateSuperstep: writeToZnode passed");
 
       // finalize checkpoint
       try {
@@ -2559,6 +2610,102 @@ public class BspServiceMaster<I extends WritableComparable,
 		LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
       }
     }
-
   }
+
+  private boolean getOptimisticNotification(){
+
+    boolean result = false;
+    String file = "/home/pandu/Desktop/windows-share/optimistic_signal.txt";
+
+    java.nio.file.Path p = Paths.get(file);
+    if(!Files.exists(p)){
+      return false;
+    }
+
+    try {
+      BufferedReader br = new BufferedReader(new FileReader(file));
+      String line = br.readLine();
+
+      result = (Integer.parseInt(line) == 1) ? true : false;
+
+      br.close();
+
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (IOException e){
+      e.printStackTrace();
+    }
+
+    return result;
+  }
+
+  private List<PartitionStats> readPartitionStatsListFromFile(){
+    List<PartitionStats> result = new ArrayList<PartitionStats>();
+
+    String partitionStats_dir = partitionOwnersDir + "/partitionStats_dir/";
+    File partitionStats_directory = new File(partitionStats_dir);
+
+    for(File tmpFile: partitionStats_directory.listFiles()) {
+      // iterate the file
+      // add into List
+      try {
+        BufferedReader br = new BufferedReader(new FileReader(tmpFile));
+        int counter = 0;
+        String partitionId = "";
+        String vertexCount = "";
+        String finishedVertexCount = "";
+        String edgeCount = "";
+        String messagesSentCount = "";
+        String messageBytesSentCount = "";
+        String computeMs = "";
+        String workerHostnameId = "";
+
+        String line = br.readLine();
+
+        while(line != null){
+          if(counter == 0) { partitionId = line; }
+          if(counter == 1) { vertexCount = line;}
+          if(counter == 2) { finishedVertexCount = line; }
+          if(counter == 3) { edgeCount = line; }
+          if(counter == 4) { messagesSentCount = line; }
+          if(counter == 5) { messageBytesSentCount = line; }
+          if(counter == 6) { computeMs = line; }
+          if(counter == 7) { workerHostnameId = line; }
+          counter++;
+
+          if(counter == 8) { // successfully read the data
+            PartitionStats stats = new PartitionStats(
+                    Integer.parseInt(partitionId),
+                    Long.parseLong(vertexCount),
+                    Long.parseLong(finishedVertexCount),
+                    Long.parseLong(edgeCount),
+                    Long.parseLong(messagesSentCount),
+                    Long.parseLong(messageBytesSentCount),
+                    workerHostnameId);
+
+            stats.setComputeMs(Long.parseLong(computeMs));
+
+            result.add(stats);
+            counter = 0;
+          }
+
+          line = br.readLine();
+        }
+        br.close();
+      } catch (FileNotFoundException e) {
+        e.printStackTrace();
+      } catch (IOException e){
+        e.printStackTrace();
+      }
+    }
+
+    // debug
+    System.out.println("readPartitionStatsListFromFile");
+    for(PartitionStats stat : result){
+      System.out.println(stat.toString());
+    }
+
+    return result;
+  }
+
 }

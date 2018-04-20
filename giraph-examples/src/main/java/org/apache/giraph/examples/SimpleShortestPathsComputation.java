@@ -18,6 +18,7 @@
 
 package org.apache.giraph.examples;
 
+import com.google.common.collect.Iterables;
 import org.apache.giraph.graph.BasicComputation;
 import org.apache.giraph.conf.LongConfOption;
 import org.apache.giraph.edge.Edge;
@@ -40,7 +41,7 @@ public class SimpleShortestPathsComputation extends BasicComputation<
     LongWritable, DoubleWritable, FloatWritable, DoubleWritable> {
   /** The shortest paths id */
   public static final LongConfOption SOURCE_ID =
-      new LongConfOption("SimpleShortestPathsVertex.sourceId", 1,
+      new LongConfOption("SimpleShortestPathsVertex.sourceId", 0,
           "The shortest paths id");
   /** Class logger */
   private static final Logger LOG =
@@ -63,6 +64,18 @@ public class SimpleShortestPathsComputation extends BasicComputation<
     if (getSuperstep() == 0) {
       vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
     }
+
+    // test
+    if(getSuperstep() == 0){
+      System.out.println("In Superstep 0 VertexID " + vertex.getId() + " message ");
+      if(!Iterables.isEmpty(messages)) {
+        System.out.println("is empty");
+      }
+    }
+
+    System.out.println("attempt: " + getContext().getTaskAttemptID().getId() +
+            " superstep: " + getSuperstep() + " myWorkerIndex: " + getWorkerContext().getMyWorkerIndex());
+
     double minDist = isSource(vertex) ? 0d : Double.MAX_VALUE;
     for (DoubleWritable message : messages) {
       minDist = Math.min(minDist, message.get());
@@ -73,9 +86,8 @@ public class SimpleShortestPathsComputation extends BasicComputation<
       LOG.debug("Vertex " + vertex.getId() + " got minDist = " + minDist +
           " vertex value = " + vertex.getValue());
     }
-    System.out.println(getMyWorkerIndex() + " " + getConf().getLocalHostname() + " " +
-            getConf().getLocalHostOrIp()
-            + " " + getConf().getPartitionClass() + " " + getConf().getTaskPartition() + " " +
+    System.out.println(getSuperstep() + " " + getMyWorkerIndex() + " " + getConf().getLocalHostname()
+            + " " + getConf().getTaskPartition() + " " +
             "Vertex " + vertex.getId() + " got minDist = " + minDist +
             " vertex value = " + vertex.getValue());
 
@@ -87,9 +99,8 @@ public class SimpleShortestPathsComputation extends BasicComputation<
           LOG.debug("Vertex " + vertex.getId() + " sent to " +
               edge.getTargetVertexId() + " = " + distance);
         }
-        System.out.println(getMyWorkerIndex() + " " + getConf().getLocalHostname() + " " +
-                getConf().getLocalHostOrIp()
-                + " " + getConf().getPartitionClass() + " " + getConf().getTaskPartition() + " " +
+        System.out.println(getSuperstep() + " " + getMyWorkerIndex() + " " + getConf().getLocalHostname()
+                + " " + getConf().getTaskPartition() + " " +
                 "Vertex " + vertex.getId() + " sent to " +
                 edge.getTargetVertexId() + " = " + distance);
         sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));

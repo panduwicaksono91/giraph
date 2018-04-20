@@ -73,9 +73,27 @@ public class BlockingElementsSet<T> {
   public List<T> getElements(int elementCount, Progressable progressable) {
     ProgressableUtils.awaitSemaphorePermits(
         semaphore, elementCount, progressable);
+
+    System.out.println("BlockingElementsSet getElements");
+    System.out.println("elements.size(): " + elements.size());
+    System.out.println("elementCount: " + elementCount);
+    System.out.println("For loop the elements");
+    for(int ii = 0; ii < elements.size(); ii++){
+      System.out.println(elements.get(ii).toString());
+    }
+
     Preconditions.checkState(elements.size() == elementCount);
     List<T> ret = new ArrayList<>(elements);
     elements.clear();
     return ret;
+  }
+
+  /**
+   * Optimistic Recovery
+   * Clear the elements
+   * @author Pandu Wicaksono
+   */
+  public void clearElements(){
+    elements.clear();
   }
 }
