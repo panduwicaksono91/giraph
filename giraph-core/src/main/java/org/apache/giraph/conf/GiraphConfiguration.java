@@ -91,19 +91,19 @@ public class GiraphConfiguration extends Configuration
 
   /**
    * Set the superstep to kill
-   * @author Shibo
+   * @author Pandu
    * @param superstepToKill
    */
-  public final void setSuperstepToKill(Integer superstepToKill){
+  public final void setSuperstepToKill(String superstepToKill){
     SUPERSTEP_TO_KILL.set(this, superstepToKill);
   }
 
   /**
    * Get the superstep to kill
-   * @author Shibo
-   * @return
+   * @author Pandu
+   * @return list of supersteps that will simulate failure
    */
-  public final int getSuperstepToKill(){
+  public final String getSuperstepToKill(){
     return SUPERSTEP_TO_KILL.get(this);
   }
 

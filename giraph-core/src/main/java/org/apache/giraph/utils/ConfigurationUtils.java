@@ -92,7 +92,8 @@ end[PURE_YARN]*/
     OPTIONS = new Options();
 
     // new configuration
-    OPTIONS.addOption("s", "superstepToKill", true, "Help");
+    OPTIONS.addOption("s", "superstepToKill", true,
+        "List of superstep to kill separated by comma");
 
 
     OPTIONS.addOption("h", "help", false, "Help");
@@ -355,9 +356,8 @@ end[PURE_YARN]*/
     }
 
     // set the superstep to kill
-    // shibo & pandu
     if (cmd.hasOption("s")) {
-      conf.setSuperstepToKill(Integer.parseInt(cmd.getOptionValue("s")));
+      conf.setSuperstepToKill(cmd.getOptionValue("s"));
     }
 
     if (cmd.hasOption("vof")) {

@@ -2580,7 +2580,7 @@ public class BspServiceMaster<I extends WritableComparable,
   }
 
   private void deleteOptimisticFile(){
-	LOG.info("deleteOptimisticFile: starts");
+	  LOG.info("deleteOptimisticFile: starts");
     String dir = partitionOwnersDir;
     String optimistic_signaltxt = "/optimistic_signal.txt";
     String workerInfoListtxt = "/workerInfoList.txt";
@@ -2588,26 +2588,38 @@ public class BspServiceMaster<I extends WritableComparable,
 
 
     File file = new File(dir + optimistic_signaltxt);
-	LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
+	  LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
     file.delete();
 	  
     file = new File(dir + workerInfoListtxt);
-	LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
-	file.delete();
+    LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
+    file.delete();
 
     file = new File(dir + newWorkertxt);
-	LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));      
-	file.delete();
+    LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
+    file.delete();
 
     String optimistic_dir = partitionOwnersDir + "/optimistic_dir/";
     File optimistic_directory = new File(optimistic_dir);
 
-	LOG.info("deleteOptimisticFile: for loop delete file");
+    LOG.info("deleteOptimisticFile: for loop delete file");
     for(File tmpFile: optimistic_directory.listFiles()) {
-	  LOG.info("deleteOptimisticFile: try to delete file " + tmpFile.toPath());
+    LOG.info("deleteOptimisticFile: try to delete file " + tmpFile.toPath());
       if (!tmpFile.isDirectory()) {
         tmpFile.delete();
-		LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
+    LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
+      }
+    }
+
+    String partitionStats_dir = partitionOwnersDir + "/partitionStats_dir/";
+    File partitionStats_directory = new File(partitionStats_dir);
+
+    LOG.info("deleteOptimisticFile: for loop delete file");
+    for(File tmpFile: partitionStats_directory.listFiles()) {
+      LOG.info("deleteOptimisticFile: try to delete file " + tmpFile.toPath());
+      if (!tmpFile.isDirectory()) {
+        tmpFile.delete();
+        LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
       }
     }
   }
