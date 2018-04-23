@@ -59,11 +59,7 @@ import org.apache.giraph.metrics.WorkerSuperstepMetrics;
 import org.apache.giraph.partition.*;
 import org.apache.giraph.time.SystemTime;
 import org.apache.giraph.time.Time;
-import org.apache.giraph.utils.CheckpointingUtils;
-import org.apache.giraph.utils.JMapHistoDumper;
-import org.apache.giraph.utils.ReactiveJMapHistoDumper;
-import org.apache.giraph.utils.ReflectionUtils;
-import org.apache.giraph.utils.WritableUtils;
+import org.apache.giraph.utils.*;
 import org.apache.giraph.worker.WorkerInfo;
 import org.apache.giraph.zk.BspEvent;
 import org.apache.giraph.zk.PredicateLock;
@@ -185,8 +181,8 @@ public class BspServiceMaster<I extends WritableComparable,
   private final CheckpointSupportedChecker checkpointSupportedChecker;
 
   /** Optimistic recovery */
-  private Collection<PartitionOwner> fixedPartitionOwners;
-  private String partitionOwnersDir = "/home/pandu/Desktop/windows-share";
+//  private Collection<PartitionOwner> fixedPartitionOwners;
+//  private String partitionOwnersDir = "/home/pandu/Desktop/windows-share";
 
   /**
    * Constructor for setting up the master.
@@ -1019,14 +1015,14 @@ public class BspServiceMaster<I extends WritableComparable,
 
     LOG.info("aggregateWorkerStats: start getAllPartitionStats");
 
-    if(!getOptimisticNotification()){
+    if(!HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
       LOG.info("aggregateWorkerStats: workerFinishedPathList.size()" + workerFinishedPathList.size());
       System.out.println("check getAllPartitionStats in superstep " +  getSuperstep());
       statsList = globalCommHandler.getAllPartitionStats(
         workerFinishedPathList.size(), getContext());
     } else {
       // optimistic recovery
-      statsList = readPartitionStatsListFromFile();
+      statsList = HybridUtils.readPartitionStatsListFromFile(getConfiguration().getHybridHomeDir());
       globalCommHandler.resetPartitionStats();
     }
 
@@ -1131,7 +1127,7 @@ public class BspServiceMaster<I extends WritableComparable,
         getSuperstepFinishedPath(getApplicationAttempt(), superstep - 1);
 
     // optimistic recovery
-    if(getOptimisticNotification()){
+    if(HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
       LOG.info("finalizeCheckpoint: optimistic changes");
       superstepFinishedNode =
               getSuperstepFinishedPath(getApplicationAttempt(), superstep);
@@ -1234,7 +1230,7 @@ public class BspServiceMaster<I extends WritableComparable,
 //      partitionOwners = fixedPartitionOwners;
 
       System.out.println("Change the partition owner at superstep: " + getSuperstep());
-      printPartitionOwners(partitionOwners);
+      HybridUtils.printPartitionOwners(partitionOwners);
 
       PartitionUtils.analyzePartitionStats(partitionOwners,
           allPartitionStatsList);
@@ -1708,7 +1704,7 @@ public class BspServiceMaster<I extends WritableComparable,
 
     // print the worker
     System.out.println("Print the worker before assigning:");
-    printWorkerInfoList(chosenWorkerInfoList);
+    HybridUtils.printWorkerInfoList(chosenWorkerInfoList);
 
     if (chosenWorkerInfoList == null) {
       setJobStateFailed("coordinateSuperstep: Not enough healthy workers for " +
@@ -1803,7 +1799,7 @@ public class BspServiceMaster<I extends WritableComparable,
       List<WorkerInfo> workerAfterFail = new ArrayList<WorkerInfo>();
       WorkerInfo missingWorker = new WorkerInfo();
 
-	  for (WorkerInfo workerInfo : chosenWorkerInfoList) {
+	    for (WorkerInfo workerInfo : chosenWorkerInfoList) {
         String workerInfoHealthyPath =
             getWorkerInfoHealthyPath(getApplicationAttempt(),
                 getSuperstep()) + "/" +
@@ -1816,7 +1812,7 @@ public class BspServiceMaster<I extends WritableComparable,
           LOG.warn("coordinateSuperstep: Chosen worker " +
               workerInfoHealthyPath +
               " is no longer valid, failing superstep");
-		  System.out.println("coordinateSuperstep: Chosen worker " +
+		    System.out.println("coordinateSuperstep: Chosen worker " +
               workerInfoHealthyPath +
               " is no longer valid, failing superstep");
         } else {
@@ -1824,38 +1820,39 @@ public class BspServiceMaster<I extends WritableComparable,
         }
       }
 
-	  System.out.println("workerAfterFail");
-      printWorkerInfoList(workerAfterFail);
-	  System.out.println("print worker info list to file");
-	  printWorkerInfoListToFile(chosenWorkerInfoList, "workerInfoList.txt");
-	  LOG.info("coordinateSuperstep: passed printing workerInfo");
+      System.out.println("workerAfterFail");
+      HybridUtils.printWorkerInfoList(workerAfterFail);
+      System.out.println("print worker info list to file");
+      HybridUtils.printWorkerInfoListToFile(chosenWorkerInfoList, getConfiguration().getHybridHomeDir(),
+              "workerInfoList.txt");
+      LOG.info("coordinateSuperstep: passed printing workerInfo");
 
-	  System.out.println("notify Netty client");
-      notifyNettyClient(missingWorker);
+	    System.out.println("notify Netty client");
+      HybridUtils.notifyNettyClient(getConfiguration().getHybridHomeDir(),missingWorker);
       LOG.info("coordinateSuperstep: passed notifyNettyClient");
 
       // read the new worker
       List<WorkerInfo> newWorker = null;
-	  while(newWorker == null){
-	    LOG.info("coordinateSuperstep: while loop read newWorker");
-		try {
-          TimeUnit.SECONDS.sleep(1);
-        } catch (InterruptedException e) {
-          e.printStackTrace();
-        }
-		
-		newWorker = readWorkerInfoListFromFile("newWorker.txt");
-	  }
+      while(newWorker == null){
+        LOG.info("coordinateSuperstep: while loop read newWorker");
+        try {
+              TimeUnit.SECONDS.sleep(1);
+            } catch (InterruptedException e) {
+              e.printStackTrace();
+            }
+        newWorker = HybridUtils.readWorkerInfoListFromFile(getConfiguration().getHybridHomeDir(),
+                "newWorker.txt");
+      }
 	  
-	  System.out.println("print new worker");
-      printWorkerInfoList(newWorker);
+      System.out.println("print new worker");
+      HybridUtils.printWorkerInfoList(newWorker);
       LOG.info("coordinateSuperstep: passed read newWorker");
 
 
       // update the choosen worker
       workerAfterFail.addAll(newWorker);
-	  System.out.println("update worker after fail");
-      printWorkerInfoList(workerAfterFail);
+      System.out.println("update worker after fail");
+      HybridUtils.printWorkerInfoList(workerAfterFail);
       LOG.info("coordinateSuperstep: passed updateChoosenWorker");
 
       // barrier to wait for the checkpoint
@@ -1900,10 +1897,10 @@ public class BspServiceMaster<I extends WritableComparable,
 
       LOG.info("coordinateSuperstep: finalizeCheckpoint passed");
 
-      deleteOptimisticFile();
+      HybridUtils.deleteOptimisticFile(getConfiguration().getHybridHomeDir());
       LOG.info("coordinateSuperstep: deleteOptimisticFile passed");
 	  
-	  resetNotificationNettyClient();
+	    HybridUtils.resetNotificationNettyClient(getConfiguration().getHybridHomeDir());
 
       // set fail job
 
@@ -2365,359 +2362,6 @@ public class BspServiceMaster<I extends WritableComparable,
     int percentage = (int) gs.getLowestGraphPercentageInMemory().getValue();
     gs.getLowestGraphPercentageInMemory().setValue(
         Math.min(percentage, globalStats.getLowestGraphPercentageInMemory()));
-  }
-
-  // optimistic recovery
-
-  /**
-   * Print the PartitionOwner
-   * @author Pandu
-   */
-  private void printPartitionOwners(Collection<PartitionOwner> partitionOwnerColletion){
-    for(PartitionOwner owner : partitionOwnerColletion) {
-      System.out.println("partitionId: " + owner.getPartitionId() + " " + owner.getWorkerInfo().getHostnameId());
-    }
-  }
-
-  /**
-   * Print the PartitionOwner to file
-   * @author Pandu
-   */
-  private void printPartitionOwnersToFile(Collection<PartitionOwner> partitionOwnerCollection, String filename){
-    String fullFilename = partitionOwnersDir + "/" + filename;
-
-    java.nio.file.Path p = Paths.get(fullFilename);
-    if(Files.exists(p)){
-      return;
-    }
-
-    try {
-      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
-      for(PartitionOwner owner : partitionOwnerCollection){
-        // write the partition id
-        writer.write(owner.getPartitionId() + "\n"); // 0
-
-        // write the worker info
-        WorkerInfo workerInfo = owner.getWorkerInfo();
-        writer.write(workerInfo.getHostname() + "\n"); // hostname 1
-        writer.write(workerInfo.getPort() + "\n"); // port 2
-        writer.write(workerInfo.getTaskId() + "\n"); // taskID 3
-        writer.write(workerInfo.getHostOrIp() + "\n"); // hostOrIp 4
-
-        writer.flush();
-      }
-      writer.close();
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (UnsupportedEncodingException e) {
-      e.printStackTrace();
-    }
-  }
-
-  private Collection<PartitionOwner> readPartitionOwnerFromFile(String filename){
-    String file = partitionOwnersDir + "/" + filename;
-    ArrayList<PartitionOwner> result = new ArrayList<PartitionOwner>();
-
-    try {
-      BufferedReader br = new BufferedReader(new FileReader(file));
-      int counter = 0;
-      String partitionID = "";
-      String hostname = "";
-      String port = "";
-      String taskID = "";
-      String hostOrIp = "";
-
-      String line = br.readLine();
-
-      while(line != null){
-        if(counter == 0) { partitionID = line; }
-        if(counter == 1) { hostname = line; }
-        if(counter == 2) { port = line;}
-        if(counter == 3) { taskID = line; }
-        if(counter == 4) { hostOrIp = line; }
-        counter++;
-
-        if(counter == 5) { // successfully read the data
-          WorkerInfo workerInfo = new WorkerInfo();
-          workerInfo.setHostname(hostname);
-          workerInfo.setPort(Integer.parseInt(port));
-          workerInfo.setTaskId(Integer.parseInt(taskID));
-          workerInfo.setHostOrIp(hostOrIp);
-
-          PartitionOwner owner = new BasicPartitionOwner(Integer.parseInt(partitionID), workerInfo);
-          result.add(owner);
-          counter = 0;
-        }
-
-        line = br.readLine();
-      }
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (IOException e){
-      e.printStackTrace();
-    }
-
-    return result;
-  }
-
-  private void printWorkerInfoList(List<WorkerInfo> workers){
-    System.out.println("printWorkerInfoList");
-    for(WorkerInfo worker : workers){
-      System.out.println(worker);
-    }
-  }
-
-  private void printWorkerInfoListToFile(List<WorkerInfo> workers, String filename){
-    String fullFilename = partitionOwnersDir + "/" + filename;
-
-    java.nio.file.Path p = Paths.get(fullFilename);
-    if(Files.exists(p)){
-      return;
-    }
-
-    try {
-      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
-      for(WorkerInfo workerInfo : workers){
-        // write the worker info
-        writer.write(workerInfo.getHostname() + "\n"); // hostname 0
-        writer.write(workerInfo.getPort() + "\n"); // port 1
-        writer.write(workerInfo.getTaskId() + "\n"); // taskID 2
-        writer.write(workerInfo.getHostOrIp() + "\n"); // hostOrIp 3
-
-        writer.flush();
-      }
-      writer.close();
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (UnsupportedEncodingException e) {
-      e.printStackTrace();
-    }
-  }
-
-  private List<WorkerInfo> readWorkerInfoListFromFile(String filename){
-    String file = partitionOwnersDir + "/" + filename;
-    ArrayList<WorkerInfo> result = new ArrayList<WorkerInfo>();
-
-    try {
-      BufferedReader br = new BufferedReader(new FileReader(file));
-      int counter = 0;
-      String hostname = "";
-      String port = "";
-      String taskID = "";
-      String hostOrIp = "";
-
-      String line = br.readLine();
-
-      while(line != null){
-        if(counter == 0) { hostname = line; }
-        if(counter == 1) { port = line;}
-        if(counter == 2) { taskID = line; }
-        if(counter == 3) { hostOrIp = line; }
-        counter++;
-
-        if(counter == 4) { // successfully read the data
-          WorkerInfo workerInfo = new WorkerInfo();
-          workerInfo.setHostname(hostname);
-          workerInfo.setPort(Integer.parseInt(port));
-          workerInfo.setTaskId(Integer.parseInt(taskID));
-          workerInfo.setHostOrIp(hostOrIp);
-
-          result.add(workerInfo);
-          counter = 0;
-        }
-
-        line = br.readLine();
-      }
-	  br.close();
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (IOException e){
-      e.printStackTrace();
-    }
-
-    return result;
-  }
-
-  private void notifyNettyClient(WorkerInfo missingWorker){
-    String fullFilename = partitionOwnersDir + "/optimistic_signal.txt";
-
-    try {
-      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
-      writer.write("1\n");
-
-      // print the missing workerInfo
-      // write the worker info
-      writer.write(missingWorker.getHostname() + "\n"); // hostname 0
-      writer.write(missingWorker.getPort() + "\n"); // port 1
-      writer.write(missingWorker.getTaskId() + "\n"); // taskID 2
-      writer.write(missingWorker.getHostOrIp() + "\n"); // hostOrIp 3
-
-      writer.flush();
-      writer.close();
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (UnsupportedEncodingException e) {
-      e.printStackTrace();
-    }
-    System.out.println("BSPServiceMaster notifyNettyClient");
-  }
-
-  private void resetNotificationNettyClient(){
-    String fullFilename = partitionOwnersDir + "/optimistic_signal.txt";
-
-    try {
-      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
-      writer.write("0\n");
-      writer.flush();
-      writer.close();
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (UnsupportedEncodingException e) {
-      e.printStackTrace();
-    }
-
-    System.out.println("BSPServiceMaster resetNotificationNettyClient");
-  }
-
-  private void deleteOptimisticFile(){
-	  LOG.info("deleteOptimisticFile: starts");
-    String dir = partitionOwnersDir;
-    String optimistic_signaltxt = "/optimistic_signal.txt";
-    String workerInfoListtxt = "/workerInfoList.txt";
-    String newWorkertxt = "/newWorker.txt";
-
-
-    File file = new File(dir + optimistic_signaltxt);
-	  LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
-    file.delete();
-	  
-    file = new File(dir + workerInfoListtxt);
-    LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
-    file.delete();
-
-    file = new File(dir + newWorkertxt);
-    LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
-    file.delete();
-
-    String optimistic_dir = partitionOwnersDir + "/optimistic_dir/";
-    File optimistic_directory = new File(optimistic_dir);
-
-    LOG.info("deleteOptimisticFile: for loop delete file");
-    for(File tmpFile: optimistic_directory.listFiles()) {
-    LOG.info("deleteOptimisticFile: try to delete file " + tmpFile.toPath());
-      if (!tmpFile.isDirectory()) {
-        tmpFile.delete();
-    LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
-      }
-    }
-
-    String partitionStats_dir = partitionOwnersDir + "/partitionStats_dir/";
-    File partitionStats_directory = new File(partitionStats_dir);
-
-    LOG.info("deleteOptimisticFile: for loop delete file");
-    for(File tmpFile: partitionStats_directory.listFiles()) {
-      LOG.info("deleteOptimisticFile: try to delete file " + tmpFile.toPath());
-      if (!tmpFile.isDirectory()) {
-        tmpFile.delete();
-        LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
-      }
-    }
-  }
-
-  private boolean getOptimisticNotification(){
-
-    boolean result = false;
-    String file = "/home/pandu/Desktop/windows-share/optimistic_signal.txt";
-
-    java.nio.file.Path p = Paths.get(file);
-    if(!Files.exists(p)){
-      return false;
-    }
-
-    try {
-      BufferedReader br = new BufferedReader(new FileReader(file));
-      String line = br.readLine();
-
-      result = (Integer.parseInt(line) == 1) ? true : false;
-
-      br.close();
-
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (IOException e){
-      e.printStackTrace();
-    }
-
-    return result;
-  }
-
-  private List<PartitionStats> readPartitionStatsListFromFile(){
-    List<PartitionStats> result = new ArrayList<PartitionStats>();
-
-    String partitionStats_dir = partitionOwnersDir + "/partitionStats_dir/";
-    File partitionStats_directory = new File(partitionStats_dir);
-
-    for(File tmpFile: partitionStats_directory.listFiles()) {
-      // iterate the file
-      // add into List
-      try {
-        BufferedReader br = new BufferedReader(new FileReader(tmpFile));
-        int counter = 0;
-        String partitionId = "";
-        String vertexCount = "";
-        String finishedVertexCount = "";
-        String edgeCount = "";
-        String messagesSentCount = "";
-        String messageBytesSentCount = "";
-        String computeMs = "";
-        String workerHostnameId = "";
-
-        String line = br.readLine();
-
-        while(line != null){
-          if(counter == 0) { partitionId = line; }
-          if(counter == 1) { vertexCount = line;}
-          if(counter == 2) { finishedVertexCount = line; }
-          if(counter == 3) { edgeCount = line; }
-          if(counter == 4) { messagesSentCount = line; }
-          if(counter == 5) { messageBytesSentCount = line; }
-          if(counter == 6) { computeMs = line; }
-          if(counter == 7) { workerHostnameId = line; }
-          counter++;
-
-          if(counter == 8) { // successfully read the data
-            PartitionStats stats = new PartitionStats(
-                    Integer.parseInt(partitionId),
-                    Long.parseLong(vertexCount),
-                    Long.parseLong(finishedVertexCount),
-                    Long.parseLong(edgeCount),
-                    Long.parseLong(messagesSentCount),
-                    Long.parseLong(messageBytesSentCount),
-                    workerHostnameId);
-
-            stats.setComputeMs(Long.parseLong(computeMs));
-
-            result.add(stats);
-            counter = 0;
-          }
-
-          line = br.readLine();
-        }
-        br.close();
-      } catch (FileNotFoundException e) {
-        e.printStackTrace();
-      } catch (IOException e){
-        e.printStackTrace();
-      }
-    }
-
-    // debug
-    System.out.println("readPartitionStatsListFromFile");
-    for(PartitionStats stat : result){
-      System.out.println(stat.toString());
-    }
-
-    return result;
   }
 
 }

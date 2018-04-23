@@ -91,9 +91,12 @@ end[PURE_YARN]*/
   static {
     OPTIONS = new Options();
 
-    // new configuration
+    // new configuration for hybrid recovery
     OPTIONS.addOption("s", "superstepToKill", true,
         "List of superstep to kill separated by comma");
+    OPTIONS.addOption("dir", "homeDir", true,
+            "Home directory for hybrid recovery purpose");
+
 
 
     OPTIONS.addOption("h", "help", false, "Help");

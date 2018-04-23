@@ -108,6 +108,22 @@ public class GiraphConfiguration extends Configuration
   }
 
   /**
+   * Set hybrid home directory
+   * @author Pandu Wicaksono
+   */
+  public final void setHybridHomeDir(String hybridHomeDir){
+    HYBRID_HOME_DIR.set(this, hybridHomeDir);
+  }
+
+  /**
+   * Get the hybrid home directory
+   * @author Pandu Wicaksono
+   */
+  public final String getHybridHomeDir(){
+    return HYBRID_HOME_DIR.get(this);
+  }
+
+  /**
    * Get name of computation being run. We leave this up to the
    * {@link ComputationFactory} to decide what to return.
    *

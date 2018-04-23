@@ -110,6 +110,10 @@ public interface GiraphConstants {
   StrConfOption SUPERSTEP_TO_KILL = new StrConfOption("giraph.superstepToKill",
       "", "superstep to kill");
 
+  /** Home directory for hybrid recovery purpose */
+  StrConfOption HYBRID_HOME_DIR = new StrConfOption("giraph.hybridHomeDir",
+          "/home/pandu/Desktop/windows-share", "home directory for hybrid recovery");
+
   /** Mapping related information */
   ClassConfOption<MappingStore> MAPPING_STORE_CLASS =
       ClassConfOption.create("giraph.mappingStoreClass", null,

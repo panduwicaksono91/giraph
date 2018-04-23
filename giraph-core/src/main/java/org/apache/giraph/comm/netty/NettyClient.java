@@ -856,6 +856,8 @@ public class NettyClient {
     checkState(flowControl.getNumberOfUnsentRequests() == 0);
 
     while (clientRequestIdRequestInfoMap.size() > 0) {
+      LOG.info("waitAllRequest: clientRequestIdRequestInfoMap.size()"
+              + clientRequestIdRequestInfoMap.size());
       // Wait for requests to complete for some time
       synchronized (clientRequestIdRequestInfoMap) {
         if (clientRequestIdRequestInfoMap.size() == 0) {

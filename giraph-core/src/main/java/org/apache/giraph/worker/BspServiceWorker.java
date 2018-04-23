@@ -83,15 +83,7 @@ import org.apache.giraph.partition.PartitionOwner;
 import org.apache.giraph.partition.PartitionStats;
 import org.apache.giraph.partition.PartitionStore;
 import org.apache.giraph.partition.WorkerGraphPartitioner;
-import org.apache.giraph.utils.BlockingElementsSet;
-import org.apache.giraph.utils.CallableFactory;
-import org.apache.giraph.utils.CheckpointingUtils;
-import org.apache.giraph.utils.JMapHistoDumper;
-import org.apache.giraph.utils.LoggerUtils;
-import org.apache.giraph.utils.MemoryUtils;
-import org.apache.giraph.utils.ProgressableUtils;
-import org.apache.giraph.utils.ReactiveJMapHistoDumper;
-import org.apache.giraph.utils.WritableUtils;
+import org.apache.giraph.utils.*;
 import org.apache.giraph.zk.BspEvent;
 import org.apache.giraph.zk.PredicateLock;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -516,7 +508,7 @@ public class BspServiceWorker<I extends WritableComparable,
     // if worker is restarted
     if(checkWorkerRestarted()){
       LOG.info("setup: checkWorkerRestarted");
-      while(!getOptimisticNotification()){
+      while(!HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
 	    LOG.info("setup: whileLoop");
         try {
           TimeUnit.SECONDS.sleep(1);
@@ -532,24 +524,25 @@ public class BspServiceWorker<I extends WritableComparable,
       String newWorker = "newWorker.txt";
       List<WorkerInfo> thisWorker = new ArrayList<WorkerInfo>();
       thisWorker.add(getWorkerInfo());
-      printWorkerInfoListToFile(thisWorker,newWorker);
+      HybridUtils.printWorkerInfoListToFile(thisWorker,getConfiguration().getHybridHomeDir(),newWorker);
       LOG.info("setup: print this worker to file passed");
 
       // get the info
-      List<WorkerInfo> chosenWorkerInfo = readWorkerInfoListFromFile("workerInfoList.txt");
-      missingWorker = getOptimisticNotification(true);
-	  LOG.info("setup: print missingWorker " + missingWorker.toString());
+      List<WorkerInfo> chosenWorkerInfo = HybridUtils.readWorkerInfoListFromFile(getConfiguration().getHybridHomeDir(),
+              "workerInfoList.txt");
+      missingWorker = HybridUtils.getMissingWorker(getConfiguration().getHybridHomeDir());
+	    LOG.info("setup: print missingWorker " + missingWorker.toString());
 	  
       // get the index
       int missingIndex = chosenWorkerInfo.indexOf(missingWorker);
-	  LOG.info("setup: print missingIndex " + missingIndex);
+	    LOG.info("setup: print missingIndex " + missingIndex);
 
-	  // update the workerInfoList
-	  workerInfoList = chosenWorkerInfo;
-	  workerInfoList.get(missingIndex).setHostname(getWorkerInfo().getHostname());
-	  workerInfoList.get(missingIndex).setPort(getWorkerInfo().getPort());
-	  workerInfoList.get(missingIndex).setTaskId(getWorkerInfo().getTaskId());
-	  workerInfoList.get(missingIndex).setHostOrIp(getWorkerInfo().getHostOrIp());
+      // update the workerInfoList
+      workerInfoList = chosenWorkerInfo;
+      workerInfoList.get(missingIndex).setHostname(getWorkerInfo().getHostname());
+      workerInfoList.get(missingIndex).setPort(getWorkerInfo().getPort());
+      workerInfoList.get(missingIndex).setTaskId(getWorkerInfo().getTaskId());
+      workerInfoList.get(missingIndex).setHostOrIp(getWorkerInfo().getHostOrIp());
 
       LOG.info("setup: workerInfoList");
 
@@ -983,9 +976,9 @@ else[HADOOP_NON_SECURE]*/
         // optimistic recovery
         LOG.info("waitForOtherWorkers: waiting for " + superstepFinishedNode);
 
-        if(getOptimisticNotification()){
-          printPartitionStatsListToFile(tmpPartitionStatsList, getWorkerInfo());
-
+        if(HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
+          HybridUtils.printPartitionStatsListToFile(tmpPartitionStatsList,
+                  getConfiguration().getHybridHomeDir(), getWorkerInfo());
           try {
             storeCheckpoint();
           } catch (IOException e) {
@@ -1702,7 +1695,7 @@ else[HADOOP_NON_SECURE]*/
       workerClient.setup();
 else[HADOOP_NON_SECURE]*/
       // optimistic recovery
-      if(!getOptimisticNotification()) {
+      if(!HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())) {
         workerClient.setup(getConfiguration().authenticate());
       }
       /*end[HADOOP_NON_SECURE]*/
@@ -2014,196 +2007,107 @@ else[HADOOP_NON_SECURE]*/
   }
 
   // optimistic recovery
-
-  private boolean getOptimisticNotification(){
-
-    boolean result = false;
-    String file = "/home/pandu/Desktop/windows-share/optimistic_signal.txt";
-
-    java.nio.file.Path p = Paths.get(file);
-    if(!Files.exists(p)){
-      return false;
-    }
-
-    try {
-      BufferedReader br = new BufferedReader(new FileReader(file));
-      String line = br.readLine();
-
-      result = (Integer.parseInt(line) == 1) ? true : false;
-	  
-	  br.close();
-
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (IOException e){
-      e.printStackTrace();
-    }
-
-    return result;
-  }
-
-  private WorkerInfo getOptimisticNotification(boolean flag){
-    WorkerInfo missingWorker = null;
-
-    String file = "/home/pandu/Desktop/windows-share/optimistic_signal.txt";
-
-    java.nio.file.Path p = Paths.get(file);
-    if(!Files.exists(p)){
-      return null;
-    }
-
-    try {
-      BufferedReader br = new BufferedReader(new FileReader(file));
-      int counter = 0;
-      String hostname = "";
-      String port = "";
-      String taskID = "";
-      String hostOrIp = "";
-
-      String line = br.readLine(); // first one is flag
-      line = br.readLine();
-
-      while(line != null){
-        if(counter == 0) { hostname = line; }
-        if(counter == 1) { port = line;}
-        if(counter == 2) { taskID = line; }
-        if(counter == 3) { hostOrIp = line; }
-        counter++;
-
-        if(counter == 4) { // successfully read the data
-          WorkerInfo workerInfo = new WorkerInfo();
-          workerInfo.setHostname(hostname);
-          workerInfo.setPort(Integer.parseInt(port));
-          workerInfo.setTaskId(Integer.parseInt(taskID));
-          workerInfo.setHostOrIp(hostOrIp);
-
-          missingWorker = workerInfo;
-          counter = 0;
-        }
-
-        line = br.readLine();
-      }
-	  
-	  br.close();
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (IOException e){
-      e.printStackTrace();
-    }
-
-    return missingWorker;
-  }
-
-  /**
-   * Print the PartitionOwner
-   * @author Pandu
-   */
-  private void printPartitionOwners(Collection<PartitionOwner> partitionOwnerColletion){
-    for(PartitionOwner owner : partitionOwnerColletion) {
-      System.out.println("partitionId: " + owner.getPartitionId() + " " + owner.getWorkerInfo().getHostnameId());
-    }
-  }
-
   private void compensate(){
-      // load check point
-      loadCheckpoint(0);
-      LOG.info("compensate: loadCheckpoint success");
+    // load check point
+    loadCheckpoint(0);
+    LOG.info("compensate: loadCheckpoint success");
 
-      LOG.info("compensate: numPartitions " + getPartitionStore().getNumPartitions());
-      String partitionID = "";
+    LOG.info("compensate: numPartitions " + getPartitionStore().getNumPartitions());
+    String partitionID = "";
 
-      for(Integer id: getPartitionStore().getPartitionIds()) {
-        partitionID += ("," + id);
-      };
+    for(Integer id: getPartitionStore().getPartitionIds()) {
+      partitionID += ("," + id);
+    };
 
-      LOG.info("compensate: ids " + partitionID);
+    LOG.info("compensate: ids " + partitionID);
 
-      // compensation function
-      // SimpleShortestPahtsComputationCompensationFunction
+    // compensation function
+    // SimpleShortestPahtsComputationCompensationFunction
 	  
 	  LOG.info("compensate: compensation function passed");
 
 	  // copied finishSuperstep
-      // Generate the partition stats for the input superstep and process
-      // if necessary
-      List<PartitionStats> partitionStatsList =
-              new ArrayList<PartitionStats>();
-      PartitionStore<I, V, E> partitionStore = getPartitionStore();
-      for (Integer partitionId : partitionStore.getPartitionIds()) {
-        PartitionStats partitionStats =
-                new PartitionStats(partitionId,
-                        partitionStore.getPartitionVertexCount(partitionId),
-                        0,
-                        partitionStore.getPartitionEdgeCount(partitionId),
-                        0,
-                        0,
-                        workerInfo.getHostnameId());
+    // Generate the partition stats for the input superstep and process
+    // if necessary
+    List<PartitionStats> partitionStatsList =
+            new ArrayList<PartitionStats>();
+    PartitionStore<I, V, E> partitionStore = getPartitionStore();
+    for (Integer partitionId : partitionStore.getPartitionIds()) {
+      PartitionStats partitionStats =
+              new PartitionStats(partitionId,
+                      partitionStore.getPartitionVertexCount(partitionId),
+                      0,
+                      partitionStore.getPartitionEdgeCount(partitionId),
+                      0,
+                      0,
+                      workerInfo.getHostnameId());
 //                        missingWorker.getHostnameId());
-        partitionStatsList.add(partitionStats);
-      }
+      partitionStatsList.add(partitionStats);
+    }
 //      workerGraphPartitioner.finalizePartitionStats(
 //              partitionStatsList, getPartitionStore());
 
-      // finish superstep
-      long workerSentMessages = 0;
-      long workerSentMessageBytes = 0;
-      long localVertices = 0;
-      for (PartitionStats partitionStats : partitionStatsList) {
-        workerSentMessages += partitionStats.getMessagesSentCount();
-        workerSentMessageBytes += partitionStats.getMessageBytesSentCount();
-        localVertices += partitionStats.getVertexCount();
-      }
+    // finish superstep
+    long workerSentMessages = 0;
+    long workerSentMessageBytes = 0;
+    long localVertices = 0;
+    for (PartitionStats partitionStats : partitionStatsList) {
+      workerSentMessages += partitionStats.getMessagesSentCount();
+      workerSentMessageBytes += partitionStats.getMessageBytesSentCount();
+      localVertices += partitionStats.getVertexCount();
+    }
 
 //      writeFinshedSuperstepInfoToZK(partitionStatsList, workerSentMessages, workerSentMessageBytes);
-      WorkerSuperstepMetrics metrics = new WorkerSuperstepMetrics();
-      metrics.readFromRegistry();
-      byte[] metricsBytes = WritableUtils.writeToByteArray(metrics);
+    WorkerSuperstepMetrics metrics = new WorkerSuperstepMetrics();
+    metrics.readFromRegistry();
+    byte[] metricsBytes = WritableUtils.writeToByteArray(metrics);
 
-      JSONObject workerFinishedInfoObj = new JSONObject();
-      try {
-        workerFinishedInfoObj.put(JSONOBJ_NUM_MESSAGES_KEY, workerSentMessages);
-        workerFinishedInfoObj.put(JSONOBJ_NUM_MESSAGE_BYTES_KEY,
-                workerSentMessageBytes);
-        workerFinishedInfoObj.put(JSONOBJ_METRICS_KEY,
-                Base64.encodeBytes(metricsBytes));
-      } catch (JSONException e) {
-        throw new RuntimeException(e);
-      }
+    JSONObject workerFinishedInfoObj = new JSONObject();
+    try {
+      workerFinishedInfoObj.put(JSONOBJ_NUM_MESSAGES_KEY, workerSentMessages);
+      workerFinishedInfoObj.put(JSONOBJ_NUM_MESSAGE_BYTES_KEY,
+              workerSentMessageBytes);
+      workerFinishedInfoObj.put(JSONOBJ_METRICS_KEY,
+              Base64.encodeBytes(metricsBytes));
+    } catch (JSONException e) {
+      throw new RuntimeException(e);
+    }
 
-      String finishedWorkerPath =
-              getWorkerFinishedPath(getApplicationAttempt(), getSuperstep()) +
-                      "/" + missingWorker.getHostnameId();
-      try {
-        getZkExt().createExt(finishedWorkerPath,
-                workerFinishedInfoObj.toString().getBytes(Charset.defaultCharset()),
-                Ids.OPEN_ACL_UNSAFE,
-                CreateMode.PERSISTENT,
-                true);
-      } catch (KeeperException.NodeExistsException e) {
-        LOG.warn("finishSuperstep: finished worker path " +
-                finishedWorkerPath + " already exists!");
-      } catch (KeeperException e) {
-        throw new IllegalStateException("Creating " + finishedWorkerPath +
-                " failed with KeeperException", e);
-      } catch (InterruptedException e) {
-        throw new IllegalStateException("Creating " + finishedWorkerPath +
-                " failed with InterruptedException", e);
-      }
+    String finishedWorkerPath =
+            getWorkerFinishedPath(getApplicationAttempt(), getSuperstep()) +
+                    "/" + missingWorker.getHostnameId();
+    try {
+      getZkExt().createExt(finishedWorkerPath,
+              workerFinishedInfoObj.toString().getBytes(Charset.defaultCharset()),
+              Ids.OPEN_ACL_UNSAFE,
+              CreateMode.PERSISTENT,
+              true);
+    } catch (KeeperException.NodeExistsException e) {
+      LOG.warn("finishSuperstep: finished worker path " +
+              finishedWorkerPath + " already exists!");
+    } catch (KeeperException e) {
+      throw new IllegalStateException("Creating " + finishedWorkerPath +
+              " failed with KeeperException", e);
+    } catch (InterruptedException e) {
+      throw new IllegalStateException("Creating " + finishedWorkerPath +
+              " failed with InterruptedException", e);
+    }
 
-      LOG.info("compensate: finishSuperstep passed");
+    LOG.info("compensate: finishSuperstep passed");
 
-      // save the PartitionStats
-      printPartitionStatsListToFile(partitionStatsList,getWorkerInfo());
-      LOG.info("compensate: printPartitionStatsListToFile passed");
+    // save the PartitionStats
+    HybridUtils.printPartitionStatsListToFile(partitionStatsList,
+            getConfiguration().getHybridHomeDir(),getWorkerInfo());
+    LOG.info("compensate: printPartitionStatsListToFile passed");
 
-      // save checkpoint
-      try {
-        LOG.info("compensate: storeCheckpoint start");
-        storeCheckpoint();
-        LOG.info("compensate: storeCheckpoint success");
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
+    // save checkpoint
+    try {
+      LOG.info("compensate: storeCheckpoint start");
+      storeCheckpoint();
+      LOG.info("compensate: storeCheckpoint success");
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 
   /**
@@ -2212,7 +2116,7 @@ else[HADOOP_NON_SECURE]*/
    * @author Pandu Wicaksono
    */
   private void registerWorker(){
-    String dir_name = "/home/pandu/Desktop/windows-share/optimistic_dir/";
+    String dir_name = getConfiguration().getHybridHomeDir() + "/optimistic_dir/";
     String filename = dir_name + "superstep" + getSuperstep() +
             "_taskID" +
             workerInfo.getTaskId() + ".txt";
@@ -2227,13 +2131,12 @@ else[HADOOP_NON_SECURE]*/
     } catch (UnsupportedEncodingException e) {
       e.printStackTrace();
     }
-
   }
 
   private boolean checkWorkerRestarted(){
     boolean result = false;
 
-    String dir_name = "/home/pandu/Desktop/windows-share/optimistic_dir/";
+    String dir_name = getConfiguration().getHybridHomeDir() + "/optimistic_dir/";
     String filename = dir_name + "superstep" + getSuperstep() +
             "_taskID" +
             workerInfo.getTaskId() + ".txt";
@@ -2246,109 +2149,4 @@ else[HADOOP_NON_SECURE]*/
     return result;
   }
 
-  private List<WorkerInfo> readWorkerInfoListFromFile(String filename){
-    String file = "/home/pandu/Desktop/windows-share/" + filename;
-    ArrayList<WorkerInfo> result = new ArrayList<WorkerInfo>();
-
-    try {
-      BufferedReader br = new BufferedReader(new FileReader(file));
-      int counter = 0;
-      String hostname = "";
-      String port = "";
-      String taskID = "";
-      String hostOrIp = "";
-
-      String line = br.readLine();
-
-      while(line != null){
-        if(counter == 0) { hostname = line; }
-        if(counter == 1) { port = line;}
-        if(counter == 2) { taskID = line; }
-        if(counter == 3) { hostOrIp = line; }
-        counter++;
-
-        if(counter == 4) { // successfully read the data
-          WorkerInfo workerInfo = new WorkerInfo();
-          workerInfo.setHostname(hostname);
-          workerInfo.setPort(Integer.parseInt(port));
-          workerInfo.setTaskId(Integer.parseInt(taskID));
-          workerInfo.setHostOrIp(hostOrIp);
-
-          result.add(workerInfo);
-          counter = 0;
-        }
-
-        line = br.readLine();
-      }
-	  
-	  br.close();
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (IOException e){
-      e.printStackTrace();
-    }
-
-    return result;
-  }
-
-  private void printWorkerInfoListToFile(List<WorkerInfo> workers, String filename){
-    String fullFilename = "/home/pandu/Desktop/windows-share" + "/" + filename;
-
-    java.nio.file.Path p = Paths.get(fullFilename);
-    if(Files.exists(p)){
-      return;
-    }
-
-    try {
-      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
-      for(WorkerInfo workerInfo : workers){
-        // write the worker info
-        writer.write(workerInfo.getHostname() + "\n"); // hostname 0
-        writer.write(workerInfo.getPort() + "\n"); // port 1
-        writer.write(workerInfo.getTaskId() + "\n"); // taskID 2
-        writer.write(workerInfo.getHostOrIp() + "\n"); // hostOrIp 3
-
-        writer.flush();
-      }
-      writer.close();
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (UnsupportedEncodingException e) {
-      e.printStackTrace();
-    }
-  }
-
-  private void printPartitionStatsListToFile(List<PartitionStats> statsList, WorkerInfo worker){
-    String fullFilename = "/home/pandu/Desktop/windows-share/partitionStats_dir/"
-            + worker.getHostnameId() + ".txt";
-
-    java.nio.file.Path p = Paths.get(fullFilename);
-    if(Files.exists(p)){
-      return;
-    }
-
-    try {
-      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
-      for(PartitionStats stat : statsList){
-        // write the PartitionStats
-        writer.write( stat.getPartitionId() + "\n"); // partitionId 0
-        writer.write( stat.getVertexCount() + "\n"); // vertexCount 1
-        writer.write( stat.getFinishedVertexCount() + "\n"); // finishedVertexCount 2
-        writer.write( stat.getEdgeCount() + "\n"); // edgeCount 3
-        writer.write( stat.getMessagesSentCount() + "\n"); // messagesSentCount 4
-        writer.write( stat.getMessageBytesSentCount() + "\n"); // messageBytesSentCount 5
-        writer.write( stat.getComputeMs() + "\n"); // computeMs 6
-        writer.write( stat.getWorkerHostnameId() + "\n"); // workerHostnameId 7
-        writer.flush();
-      }
-      writer.close();
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (UnsupportedEncodingException e) {
-      e.printStackTrace();
-    }
-
-    LOG.info("printPartitionStatsListToFile finish");
-
-  }
 }

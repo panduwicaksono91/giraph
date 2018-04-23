@@ -80,6 +80,10 @@ public class TaskIdsPermitsBarrier {
   /** Logger */
   private final TimedLogger logger;
 
+  // hybrid recovery
+  // hard coded, cannot change into variables
+  private String homeDir = "/home/pandu/Desktop/windows-share";
+
   /**
    * Constructor
    *
@@ -127,7 +131,7 @@ public class TaskIdsPermitsBarrier {
         }
       }
 
-      if(getOptimisticNotification()){
+      if(HybridUtils.getOptimisticNotification(homeDir)){
         logger.info("getOptimisticNotification bypassing waitForRequiredPermits");
         break;
       }
@@ -168,31 +172,7 @@ public class TaskIdsPermitsBarrier {
     notifyAll();
   }
 
-  private boolean getOptimisticNotification(){
-
-    boolean result = false;
-    String file = "/home/pandu/Desktop/windows-share/optimistic_signal.txt";
-	
-	java.nio.file.Path p = Paths.get(file);
-    if(!Files.exists(p)){
-      return false;
-    }
-
-    try {
-      BufferedReader br = new BufferedReader(new FileReader(file));
-      String line = br.readLine();
-	  
-	  System.out.println("TaskIdsPermitsBarrier line: " + line);
-
-      result = (Integer.parseInt(line) == 1) ? true : false;
-
-    } catch (FileNotFoundException e) {
-      e.printStackTrace();
-    } catch (IOException e){
-      e.printStackTrace();
-    }
-
-    System.out.println("TaskIdsPermitsBarrier getOptimisticNotification");
-    return result;
+  public void setHomeDir(String homeDir){
+    this.homeDir = homeDir;
   }
 }
