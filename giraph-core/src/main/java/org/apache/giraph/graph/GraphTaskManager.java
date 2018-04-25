@@ -842,6 +842,8 @@ end[PURE_YARN]*/
       final MessageStore<I, Writable> messageStore,
       int numThreads) {
 
+    LOG.info("processGraphPartitions: start");
+
     // get the partition store
     PartitionStore<I, V, E> partitionStore = serviceWorker.getPartitionStore();
 
@@ -860,6 +862,8 @@ end[PURE_YARN]*/
 
     GiraphTimerContext computeAllTimerContext = computeAll.time();
     timeToFirstMessageTimerContext = timeToFirstMessage.time();
+
+    LOG.info("processGraphPartitions: before ComputeCallable");
 
     // actually doing the computation
     // however they use threads so it looks more complicated
@@ -881,9 +885,13 @@ end[PURE_YARN]*/
         ProgressableUtils.getResultsWithNCallables(callableFactory, numThreads,
             "compute-%d", context);
 
+    LOG.info("processGraphPartitions: passed ProgressableUtils");
+
     for (Collection<PartitionStats> result : results) {
       partitionStatsList.addAll(result);
     }
+
+    LOG.info("processGraphPartitions: passed collect PartitionStatsList");
 
     computeAllTimerContext.stop();
   }

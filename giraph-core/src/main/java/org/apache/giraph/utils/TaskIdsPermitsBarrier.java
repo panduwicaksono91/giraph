@@ -82,7 +82,8 @@ public class TaskIdsPermitsBarrier {
 
   // hybrid recovery
   // hard coded, cannot change into variables
-  private String homeDir = "/home/pandu/Desktop/windows-share";
+//  private String homeDir = "/home/pandu/Desktop/windows-share";
+  private String homeDir = "/share/hadoop/pwicaksono/hadoop-2.5.1/hybrid_recovery_dir";
 
   /**
    * Constructor

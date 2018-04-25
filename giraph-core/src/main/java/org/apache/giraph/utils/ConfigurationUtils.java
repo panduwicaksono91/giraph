@@ -358,9 +358,13 @@ end[PURE_YARN]*/
       }
     }
 
-    // set the superstep to kill
+    // set hybrid recovery options
     if (cmd.hasOption("s")) {
       conf.setSuperstepToKill(cmd.getOptionValue("s"));
+    }
+
+    if (cmd.hasOption("dir")) {
+      conf.setHybridHomeDir(cmd.getOptionValue("dir"));
     }
 
     if (cmd.hasOption("vof")) {

@@ -8,9 +8,7 @@ import org.apache.giraph.worker.WorkerInfo;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 /**
  * Utility class for hybrid recovery.
@@ -130,6 +128,14 @@ public class HybridUtils {
    */
   public static void printWorkerInfoList(List<WorkerInfo> workers){
     System.out.println("printWorkerInfoList");
+
+    Collections.sort(workers, new Comparator<WorkerInfo>() {
+      @Override
+      public int compare(WorkerInfo o1, WorkerInfo o2) {
+        return o1.getTaskId() - o2.getTaskId();
+      }
+    });
+
     for(WorkerInfo worker : workers){
       System.out.println(worker);
     }
@@ -170,6 +176,12 @@ public class HybridUtils {
   public static List<WorkerInfo> readWorkerInfoListFromFile(String homeDir, String filename){
     String file = homeDir + "/" + filename;
     ArrayList<WorkerInfo> result = new ArrayList<WorkerInfo>();
+
+    // if file not found, return null
+    java.nio.file.Path p = Paths.get(file);
+    if(!Files.exists(p)){
+      return null;
+    }
 
     try {
       BufferedReader br = new BufferedReader(new FileReader(file));
@@ -429,6 +441,13 @@ public class HybridUtils {
                                                    String homeDir, WorkerInfo worker){
     String fullFilename = homeDir + "/partitionStats_dir/"
             + worker.getHostnameId() + ".txt";
+
+    Collections.sort(statsList, new Comparator<PartitionStats>() {
+      @Override
+      public int compare(PartitionStats o1, PartitionStats o2) {
+        return o1.getPartitionId() - o2.getPartitionId();
+      }
+    });
 
     java.nio.file.Path p = Paths.get(fullFilename);
     if(Files.exists(p)){

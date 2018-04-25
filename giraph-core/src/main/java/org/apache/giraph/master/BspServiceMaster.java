@@ -1219,15 +1219,13 @@ public class BspServiceMaster<I extends WritableComparable,
       }
       masterGraphPartitioner.setPartitionOwners(partitionOwners);
     } else {
-      // use fix partition owner
+
       partitionOwners =
           masterGraphPartitioner.generateChangedPartitionOwners(
               allPartitionStatsList,
               chosenWorkerInfoList,
               maxWorkers,
               getSuperstep());
-
-//      partitionOwners = fixedPartitionOwners;
 
       System.out.println("Change the partition owner at superstep: " + getSuperstep());
       HybridUtils.printPartitionOwners(partitionOwners);
