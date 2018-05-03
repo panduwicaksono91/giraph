@@ -250,6 +250,8 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
     }
     try {
       workerClientRequestProcessor.flush();
+      LOG.info("passed workerClientRequestProcessor.flush()");
+
       // The messages flushed out from the cache is
       // from the last partition processed
       if (partitionStatsList.size() > 0) {
@@ -259,9 +261,15 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
           addMessageBytesSentCount(partitionMsgBytes);
         messageBytesSentCounter.inc(partitionMsgBytes);
       }
+      LOG.info("passed partitionStatList.size()");
+
       aggregatorUsage.finishThreadComputation();
+      LOG.info("passed aggregatorUsage.finishThreadComputation()");
+
     } catch (IOException e) {
       throw new IllegalStateException("call: Flushing failed.", e);
+    } catch (IllegalStateException e){ // optimistic recovery
+      LOG.info("bypass flushing");
     }
     if (oocEngine != null) {
       oocEngine.processingThreadFinish();

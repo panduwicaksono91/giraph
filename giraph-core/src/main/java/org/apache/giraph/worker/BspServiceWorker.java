@@ -546,7 +546,9 @@ public class BspServiceWorker<I extends WritableComparable,
 
       LOG.info("setup: workerInfoList");
 
-      compensate();
+      if(!HybridUtils.checkCheckpointFinished(getConfiguration().getHybridHomeDir(), workerInfo)){
+        compensate();
+      }
 
       LOG.info("setup: compensate passed");
 
@@ -871,7 +873,12 @@ else[HADOOP_NON_SECURE]*/
       postSuperstepCallbacks();
     }
 
-    globalCommHandler.finishSuperstep(workerAggregatorRequestProcessor);
+    try {
+      globalCommHandler.finishSuperstep(workerAggregatorRequestProcessor);
+    } catch (IllegalArgumentException e){
+      LOG.info("bypass IllegalArgumentException");
+    }
+
     LOG.info("finishSuperstp: passed globalCommHandler");
 
     MessageStore<I, Writable> incomingMessageStore =
@@ -891,6 +898,7 @@ else[HADOOP_NON_SECURE]*/
     if (superstepTimerContext != null) {
       superstepTimerContext.stop();
     }
+
     writeFinshedSuperstepInfoToZK(partitionStatsList,
       workerSentMessages, workerSentMessageBytes);
     LOG.info("finishSuperstp: passed writeFinshedSuperstepIntoToZK");
@@ -985,7 +993,7 @@ else[HADOOP_NON_SECURE]*/
             e.printStackTrace();
           }
 		  
-		  TimeUnit.SECONDS.sleep(300000);
+		      TimeUnit.SECONDS.sleep(300000);
         }
 
         getSuperstepFinishedEvent().waitForTimeoutOrFail(2000); // timeout every two seconds
@@ -2108,6 +2116,8 @@ else[HADOOP_NON_SECURE]*/
     } catch (IOException e) {
       e.printStackTrace();
     }
+
+    HybridUtils.printCheckpointSuccess(getConfiguration().getHybridHomeDir(), workerInfo);
   }
 
   /**

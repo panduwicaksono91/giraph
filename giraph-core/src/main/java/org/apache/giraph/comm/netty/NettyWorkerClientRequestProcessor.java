@@ -405,6 +405,7 @@ public class NettyWorkerClientRequestProcessor<I extends WritableComparable,
     // Execute the remaining sends messages (if any)
     // including individual and compact messages.
     sendMessageCache.flush();
+    LOG.info("passed sendMessageCache.flush()");
 
     // Execute the remaining sends vertices (if any)
     PairList<WorkerInfo, PairList<Integer, ExtendedDataOutput>>
@@ -419,6 +420,7 @@ public class NettyWorkerClientRequestProcessor<I extends WritableComparable,
               configuration, vertexIterator.getCurrentSecond());
       doRequest(vertexIterator.getCurrentFirst(), writableRequest);
     }
+    LOG.info("passed remaining send vertices");
 
     // Execute the remaining sends edges (if any)
     PairList<WorkerInfo, PairList<Integer,

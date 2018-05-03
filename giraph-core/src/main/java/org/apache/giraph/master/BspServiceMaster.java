@@ -1031,7 +1031,8 @@ public class BspServiceMaster<I extends WritableComparable,
       allPartitionStatsList.add(partitionStats);
     }
 	
-	LOG.info("aggregateWorkerStats: passed allPartitionStatsList");
+	  LOG.info("aggregateWorkerStats: passed allPartitionStatsList");
+    HybridUtils.printPartitionStatList(allPartitionStatsList);
 
     if (conf.metricsEnabled()) {
       if (GiraphConstants.METRICS_DIRECTORY.isDefaultValue(conf)) {

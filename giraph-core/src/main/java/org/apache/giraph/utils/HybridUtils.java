@@ -1,5 +1,6 @@
 package org.apache.giraph.utils;
 
+import javafx.concurrent.Worker;
 import org.apache.giraph.partition.BasicPartitionOwner;
 import org.apache.giraph.partition.PartitionOwner;
 import org.apache.giraph.partition.PartitionStats;
@@ -298,29 +299,34 @@ public class HybridUtils {
 //    LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
     file.delete();
 
-    String optimistic_dir = homeDir + "/optimistic_dir/";
-    File optimistic_directory = new File(optimistic_dir);
 
-//    LOG.info("deleteOptimisticFile: for loop delete file");
-    for(File tmpFile: optimistic_directory.listFiles()) {
-//      LOG.info("deleteOptimisticFile: try to delete file " + tmpFile.toPath());
-      if (!tmpFile.isDirectory()) {
-        tmpFile.delete();
-//        LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
-      }
-    }
+    deleteAllFilesInDirectory(homeDir, "/optimistic_dir/");
+    deleteAllFilesInDirectory(homeDir, "/partitionStats_dir/");
+    deleteAllFilesInDirectory(homeDir, "/checkpoint_dir/");
 
-    String partitionStats_dir = homeDir + "/partitionStats_dir/";
-    File partitionStats_directory = new File(partitionStats_dir);
-
-//    LOG.info("deleteOptimisticFile: for loop delete file");
-    for(File tmpFile: partitionStats_directory.listFiles()) {
-//      LOG.info("deleteOptimisticFile: try to delete file " + tmpFile.toPath());
-      if (!tmpFile.isDirectory()) {
-        tmpFile.delete();
-//        LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
-      }
-    }
+//    String optimistic_dir = homeDir + "/optimistic_dir/";
+//    File optimistic_directory = new File(optimistic_dir);
+//
+////    LOG.info("deleteOptimisticFile: for loop delete file");
+//    for(File tmpFile: optimistic_directory.listFiles()) {
+////      LOG.info("deleteOptimisticFile: try to delete file " + tmpFile.toPath());
+//      if (!tmpFile.isDirectory()) {
+//        tmpFile.delete();
+////        LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
+//      }
+//    }
+//
+//    String partitionStats_dir = homeDir + "/partitionStats_dir/";
+//    File partitionStats_directory = new File(partitionStats_dir);
+//
+////    LOG.info("deleteOptimisticFile: for loop delete file");
+//    for(File tmpFile: partitionStats_directory.listFiles()) {
+////      LOG.info("deleteOptimisticFile: try to delete file " + tmpFile.toPath());
+//      if (!tmpFile.isDirectory()) {
+//        tmpFile.delete();
+////        LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
+//      }
+//    }
   }
 
   /**
@@ -526,5 +532,51 @@ public class HybridUtils {
     }
 
     return missingWorker;
+  }
+
+  public static void printCheckpointSuccess(String homeDir, WorkerInfo worker){
+    String fullFilename = homeDir + "/checkpoint_dir/" + worker.getTaskId() + ".txt";
+
+    java.nio.file.Path p = Paths.get(fullFilename);
+    if(Files.exists(p)){
+      return;
+    }
+
+    try {
+      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
+
+      // write anything
+      writer.write("1" + "\n");
+      writer.flush();
+      writer.close();
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static boolean checkCheckpointFinished(String homeDir, WorkerInfo worker){
+    boolean result = false;
+    String fullFilename = homeDir + "/checkpoint_dir/" + worker.getTaskId() + ".txt";
+
+    java.nio.file.Path p = Paths.get(fullFilename);
+    if(Files.exists(p)){
+      result = true;
+    }
+
+    return result;
+  }
+
+  public static void deleteAllFilesInDirectory(String homeDir, String dir){
+    String fullDirectoryName = homeDir + dir;
+
+    File fullDirectory = new File(fullDirectoryName);
+
+    for(File tmpFile: fullDirectory.listFiles()) {
+      if (!tmpFile.isDirectory()) {
+        tmpFile.delete();
+      }
+    }
   }
 }

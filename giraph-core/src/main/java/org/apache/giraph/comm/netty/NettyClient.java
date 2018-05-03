@@ -41,10 +41,7 @@ import org.apache.giraph.conf.ImmutableClassesGiraphConfiguration;
 import org.apache.giraph.function.Predicate;
 import org.apache.giraph.graph.TaskInfo;
 import org.apache.giraph.master.MasterInfo;
-import org.apache.giraph.utils.PipelineUtils;
-import org.apache.giraph.utils.ProgressableUtils;
-import org.apache.giraph.utils.ThreadUtils;
-import org.apache.giraph.utils.TimedLogger;
+import org.apache.giraph.utils.*;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.log4j.Logger;
 
@@ -205,6 +202,11 @@ public class NettyClient {
       new LogOnErrorChannelFutureListener();
   /** Flow control policy used */
   private final FlowControl flowControl;
+
+  // hybrid recovery
+  // hard coded, cannot change into variables
+//  private String homeDir = "/home/pandu/Desktop/windows-share";
+  private String homeDir = "/share/hadoop/pwicaksono/hadoop-2.5.1/hybrid_recovery_dir";
 
   /**
    * Only constructor
@@ -728,6 +730,11 @@ public class NettyClient {
           maxConnectionFailures + " max attempts, sleeping for 5 secs",
           connectionFuture.cause());
       ThreadUtils.trySleep(5000);
+
+      // optimistic recovery
+      if(reconnectFailures > 3){
+        break;
+      }
     }
     throw new IllegalStateException("getNextChannel: Failed to connect " +
         "to " + remoteServer + " in " + reconnectFailures +
@@ -856,8 +863,15 @@ public class NettyClient {
     checkState(flowControl.getNumberOfUnsentRequests() == 0);
 
     while (clientRequestIdRequestInfoMap.size() > 0) {
-      LOG.info("waitAllRequest: clientRequestIdRequestInfoMap.size()"
+      LOG.info("waitAllRequest: clientRequestIdRequestInfoMap.size() "
               + clientRequestIdRequestInfoMap.size());
+
+      // optimistic recovery
+      if(HybridUtils.getOptimisticNotification(homeDir)){
+        LOG.info("bypass waitAllRequest");
+        break;
+      }
+
       // Wait for requests to complete for some time
       synchronized (clientRequestIdRequestInfoMap) {
         if (clientRequestIdRequestInfoMap.size() == 0) {
@@ -959,17 +973,24 @@ public class NettyClient {
         System.currentTimeMillis())) {
       return;
     }
-    resendRequestsWhenNeeded(new Predicate<RequestInfo>() {
-      @Override
-      public boolean apply(RequestInfo requestInfo) {
-        ChannelFuture writeFuture = requestInfo.getWriteFuture();
-        // If not connected anymore, request failed, or the request is taking
-        // too long, re-establish and resend
-        return (writeFuture != null && (!writeFuture.channel().isActive() ||
-            (writeFuture.isDone() && !writeFuture.isSuccess()))) ||
-            (requestInfo.getElapsedMsecs() > maxRequestMilliseconds);
-      }
-    });
+
+    try {
+      resendRequestsWhenNeeded(new Predicate<RequestInfo>() {
+        @Override
+        public boolean apply(RequestInfo requestInfo) {
+          ChannelFuture writeFuture = requestInfo.getWriteFuture();
+          // If not connected anymore, request failed, or the request is taking
+          // too long, re-establish and resend
+          return (writeFuture != null && (!writeFuture.channel().isActive() ||
+                  (writeFuture.isDone() && !writeFuture.isSuccess()))) ||
+                  (requestInfo.getElapsedMsecs() > maxRequestMilliseconds);
+        }
+      });
+    } catch (IllegalArgumentException e){ // optimistic recovery
+      LOG.info("bypass checkRequestsForProblems");
+    } catch (IllegalStateException e) {
+      LOG.info("bypass checkRequestsForProblems");
+    }
   }
 
   /**
