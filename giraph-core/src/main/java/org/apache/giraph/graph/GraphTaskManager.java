@@ -881,6 +881,8 @@ end[PURE_YARN]*/
         }
       };
 
+    LOG.info("processGraphPartitions: passed CallableFactory");
+
     List<Collection<PartitionStats>> results =
         ProgressableUtils.getResultsWithNCallables(callableFactory, numThreads,
             "compute-%d", context);

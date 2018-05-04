@@ -153,27 +153,34 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
             context, configuration, serviceWorker,
             configuration.getOutgoingMessageEncodeAndStoreType().
               useOneMessageToManyIdsEncoding());
+    LOG.info("passed WorkerClientRequestProcessor");
+
     WorkerThreadGlobalCommUsage aggregatorUsage =
         serviceWorker.getAggregatorHandler().newThreadAggregatorUsage();
 
     vertexWriter = serviceWorker.getSuperstepOutput().getVertexWriter();
+    LOG.info("passed vertexWriter");
 
     Computation<I, V, E, M1, M2> computation =
         (Computation<I, V, E, M1, M2>) configuration.createComputation();
     computation.initialize(graphState, workerClientRequestProcessor,
         serviceWorker, aggregatorUsage);
     computation.preSuperstep();
+    LOG.info("passed Computation");
 
     List<PartitionStats> partitionStatsList = Lists.newArrayList();
     PartitionStore<I, V, E> partitionStore = serviceWorker.getPartitionStore();
     OutOfCoreEngine oocEngine = serviceWorker.getServerData().getOocEngine();
     GraphTaskManager<I, V, E> taskManager = serviceWorker.getGraphTaskManager();
+    LOG.info("passed partitionStatsList");
+
     if (oocEngine != null) {
       oocEngine.processingThreadStart();
     }
     long timeWaiting = 0;
     long timeProcessing = 0;
     long timeDoingGC = 0;
+    LOG.info("before while loop");
     while (true) {
       long startTime = System.currentTimeMillis();
       long startGCTime = taskManager.getSuperstepGCTime();
@@ -228,6 +235,8 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
       histogramComputePerPartition.update(
           System.currentTimeMillis() - startTime);
     }
+    LOG.info("after while loop");
+
     histogramGCTimePerThread.update(timeDoingGC);
     histogramWaitTimePerThread.update(timeWaiting);
     histogramProcessingTimePerThread.update(timeProcessing);

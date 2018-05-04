@@ -579,4 +579,38 @@ public class HybridUtils {
       }
     }
   }
+
+  public static void markKillingProcess(String homeDir, int superstep){
+    String fullFilename = homeDir + "/superstepkill_dir/" + superstep + ".txt";
+
+    java.nio.file.Path p = Paths.get(fullFilename);
+    if(Files.exists(p)){
+      return;
+    }
+
+    try {
+      PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
+
+      // write anything
+      writer.write("1" + "\n");
+      writer.flush();
+      writer.close();
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+  }
+
+  public static boolean checkKillingProcess(String homeDir, int superstep){
+    boolean result = false;
+    String fullFilename = homeDir + "/superstepkill_dir/" + superstep + ".txt";
+
+    java.nio.file.Path p = Paths.get(fullFilename);
+    if(Files.exists(p)){
+      result = true;
+    }
+
+    return result;
+  }
 }
