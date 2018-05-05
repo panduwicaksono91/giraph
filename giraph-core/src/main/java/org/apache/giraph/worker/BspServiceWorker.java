@@ -915,6 +915,9 @@ else[HADOOP_NON_SECURE]*/
 
     tmpPartitionStatsList = partitionStatsList;
 
+    HybridUtils.printPartitionStatsListToFile(tmpPartitionStatsList,
+            getConfiguration().getHybridHomeDir(), getWorkerInfo());
+
     waitForOtherWorkers(superstepFinishedNode);
 
     GlobalStats globalStats = new GlobalStats();
@@ -985,20 +988,22 @@ else[HADOOP_NON_SECURE]*/
         LOG.info("waitForOtherWorkers: waiting for " + superstepFinishedNode);
 
         if(HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
-          HybridUtils.printPartitionStatsListToFile(tmpPartitionStatsList,
-                  getConfiguration().getHybridHomeDir(), getWorkerInfo());
           try {
             storeCheckpoint();
           } catch (IOException e) {
             e.printStackTrace();
           }
-		  
+		      // wait until instruction to restart from master
 		      TimeUnit.SECONDS.sleep(300000);
         }
 
-        getSuperstepFinishedEvent().waitForTimeoutOrFail(2000); // timeout every two seconds
-        getSuperstepFinishedEvent().reset();
-
+        try {
+          getSuperstepFinishedEvent().waitForTimeoutOrFail(2000); // timeout every two seconds
+          getSuperstepFinishedEvent().reset();
+        } catch(RuntimeException e){
+          LOG.info("catch RunTimeException from waitForTimeoutOrFail");
+          getSuperstepFinishedEvent().reset();
+        }
 //        getSuperstepFinishedEvent().waitForTimeoutOrFail(
 //            GiraphConstants.WAIT_FOR_OTHER_WORKERS_TIMEOUT_MSEC.get(
 //                getConfiguration()));

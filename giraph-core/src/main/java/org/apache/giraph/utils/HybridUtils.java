@@ -301,7 +301,7 @@ public class HybridUtils {
 
 
     deleteAllFilesInDirectory(homeDir, "/optimistic_dir/");
-    deleteAllFilesInDirectory(homeDir, "/partitionStats_dir/");
+//    deleteAllFilesInDirectory(homeDir, "/partitionStats_dir/");
     deleteAllFilesInDirectory(homeDir, "/checkpoint_dir/");
 
 //    String optimistic_dir = homeDir + "/optimistic_dir/";
@@ -427,7 +427,7 @@ public class HybridUtils {
     }
 
     System.out.println("readPartitionStatsListFromFile");
-    printPartitionStatList(result);
+//    printPartitionStatList(result);
 
     return result;
   }

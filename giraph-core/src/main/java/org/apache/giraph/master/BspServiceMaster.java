@@ -764,21 +764,16 @@ public class BspServiceMaster<I extends WritableComparable,
     LOG.info("prepareCheckpointRestart: prefixFileCount loop");
     for (int i = 0; i < prefixFileCount; ++i) {
       int mrTaskId = finalizedStream.readInt();
-      LOG.info("prepareCheckpointRestart: mrTaskId " + mrTaskId);
 
       DataInputStream metadataStream = fs.open(new Path(checkpointFile +
           "." + mrTaskId + CheckpointingUtils.CHECKPOINT_METADATA_POSTFIX));
 
       long partitions = metadataStream.readInt();
-      LOG.info("prepareCheckpointRestart: partitions " + partitions);
 
       WorkerInfo worker = getWorkerInfoById(mrTaskId);
-      LOG.info("prepareCheckpointRestart: worker " + worker);
 
-      LOG.info("prepareCheckpointRestart: partitions loop ");
       for (long p = 0; p < partitions; ++p) {
         int partitionId = metadataStream.readInt();
-        LOG.info("prepareCheckpointRestart: partitionId " + partitionId);
 
         PartitionOwner partitionOwner = new BasicPartitionOwner(partitionId,
             worker);
@@ -1016,15 +1011,25 @@ public class BspServiceMaster<I extends WritableComparable,
     LOG.info("aggregateWorkerStats: start getAllPartitionStats");
 
     if(!HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
-      LOG.info("aggregateWorkerStats: workerFinishedPathList.size()" + workerFinishedPathList.size());
+      LOG.info("aggregateWorkerStats: workerFinishedPathList.size()=" + workerFinishedPathList.size());
       System.out.println("check getAllPartitionStats in superstep " +  getSuperstep());
-      statsList = globalCommHandler.getAllPartitionStats(
+
+      try{
+        statsList = globalCommHandler.getAllPartitionStats(
         workerFinishedPathList.size(), getContext());
+      } catch (IllegalStateException e){
+        LOG.info("catch IllegalStateException, using file to gather PartitionStats");
+        statsList = HybridUtils.readPartitionStatsListFromFile(getConfiguration().getHybridHomeDir());
+        globalCommHandler.resetPartitionStats();
+      }
+
     } else {
       // optimistic recovery
       statsList = HybridUtils.readPartitionStatsListFromFile(getConfiguration().getHybridHomeDir());
       globalCommHandler.resetPartitionStats();
     }
+
+    HybridUtils.deleteAllFilesInDirectory(getConfiguration().getHybridHomeDir(), "/partitionStats_dir/");
 
     for (PartitionStats partitionStats : statsList) {
       globalStats.addPartitionStats(partitionStats);

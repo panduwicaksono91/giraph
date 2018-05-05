@@ -25,6 +25,7 @@ import org.apache.giraph.edge.Edge;
 import org.apache.giraph.graph.BasicComputation;
 import org.apache.giraph.graph.GlobalStats;
 import org.apache.giraph.graph.Vertex;
+import org.apache.giraph.utils.HybridUtils;
 import org.apache.giraph.worker.WorkerContext;
 import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.FloatWritable;
@@ -103,6 +104,7 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
     if(killProcessEnabled(getConf().getSuperstepToKill())){
       System.out.println("Kill process in superstep " + getSuperstep()
               + " at attempt " + getContext().getTaskAttemptID().getId());
+      HybridUtils.markKillingProcess(getConf().getHybridHomeDir(), (int)getSuperstep());
       System.exit(-1);
     }
 
@@ -175,11 +177,12 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
 
     int index = superstepToKillList.indexOf((int)getSuperstep());
     System.out.println("Check killProcessEnabled index: " + index + " superstep: " + getSuperstep());
-    int numOfAttempt = getContext().getTaskAttemptID().getId();
+//    int numOfAttempt = getContext().getTaskAttemptID().getId();
 	
 	  System.out.println("Check equal superstep: " + superstepToKillList.contains((int)getSuperstep()));
 
-    boolean attempt = ((index * 2 ) == numOfAttempt) ? true : false;
+    boolean attempt = (!HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),(int)getSuperstep()))
+            ? true : false;
     boolean superstep_to_kill = (superstepToKillList.contains((int)getSuperstep())) ? true : false;
     boolean failed_worker = (getWorkerContext().getMyWorkerIndex() == 0) ? true : false;
 
@@ -197,39 +200,45 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
   private boolean compensationFunctionEnabled(){
     boolean result = false;
 	
-    int numberOfAttempt = getContext().getTaskAttemptID().getId();
-    long superstep = getSuperstep();
+//    int numberOfAttempt = getContext().getTaskAttemptID().getId();
+//    long superstep = getSuperstep();
 
-    System.out.println("Check compensationFunctionEnabled workerID " + getMyWorkerIndex() +
-    " attempt " + numberOfAttempt + " superstep " + superstep);
+//    System.out.println("Check compensationFunctionEnabled workerID " + getMyWorkerIndex() +
+//    " attempt " + numberOfAttempt + " superstep " + superstep);
 
-    // first attempt don't have to apply compensation function
-    if(numberOfAttempt == 0){
-      return false;
-    }
-
-    // aligns the failed superstep with the number of attempt
-    // parse the string
-    String superstepToKillArray[] = getConf().getSuperstepToKill().split(",");
-
-    // parse into integer
-    List<Integer> superstepToKillList = new ArrayList<Integer>();
-    for(int ii = 0; ii < superstepToKillArray.length; ii++){
-      superstepToKillList.add(Integer.parseInt(superstepToKillArray[ii]));
-    }
-
-    int index = superstepToKillList.indexOf((int)superstep);
-
-    // for alive worker
-    if(getMyWorkerIndex() != 0 && ((index + 1) == numberOfAttempt)){
-      result = true;
-    }
-
-    // for failed worker
-    if(getMyWorkerIndex() == 0 && ((index + 1)*2 == numberOfAttempt)){
+    if(HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),(int)getSuperstep())){
       result = true;
     }
 
     return result;
+
+    // first attempt don't have to apply compensation function
+//    if(numberOfAttempt == 0){
+//      return false;
+//    }
+//
+//    // aligns the failed superstep with the number of attempt
+//    // parse the string
+//    String superstepToKillArray[] = getConf().getSuperstepToKill().split(",");
+//
+//    // parse into integer
+//    List<Integer> superstepToKillList = new ArrayList<Integer>();
+//    for(int ii = 0; ii < superstepToKillArray.length; ii++){
+//      superstepToKillList.add(Integer.parseInt(superstepToKillArray[ii]));
+//    }
+//
+//    int index = superstepToKillList.indexOf((int)superstep);
+//
+//    // for alive worker
+//    if(getMyWorkerIndex() != 0 && ((index + 1) == numberOfAttempt)){
+//      result = true;
+//    }
+//
+//    // for failed worker
+//    if(getMyWorkerIndex() == 0 && ((index + 1)*2 == numberOfAttempt)){
+//      result = true;
+//    }
+//
+//    return result;
   }
 }
