@@ -438,6 +438,14 @@ public class HybridUtils {
    */
   public static void printPartitionStatList(List<PartitionStats> stats){
     System.out.println("printPartitionStatsList");
+
+    Collections.sort(stats, new Comparator<PartitionStats>() {
+      @Override
+      public int compare(PartitionStats o1, PartitionStats o2) {
+        return o1.getPartitionId() - o2.getPartitionId();
+      }
+    });
+
     for(PartitionStats stat : stats){
       System.out.println(stat.toString());
     }
