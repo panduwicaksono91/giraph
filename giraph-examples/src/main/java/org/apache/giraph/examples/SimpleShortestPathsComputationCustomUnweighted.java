@@ -36,6 +36,7 @@ import org.apache.log4j.Logger;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Demonstrates the basic Pregel shortest paths implementation.
@@ -106,6 +107,11 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
 //      System.out.println("Kill process in superstep " + getSuperstep()
 //              + " at attempt " + getContext().getTaskAttemptID().getId());
       HybridUtils.markKillingProcess(getConf().getHybridHomeDir(), (int)getSuperstep());
+      try {
+        TimeUnit.SECONDS.sleep(30);
+      } catch (InterruptedException e) {
+        e.printStackTrace();
+      }
       System.exit(-1);
     }
 

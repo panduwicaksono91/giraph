@@ -187,6 +187,8 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
 
       Partition<I, V, E> partition = partitionStore.getNextPartition();
 
+      if(partition != null) { LOG.info("passed partition " + partition.getId()); }
+
       long timeDoingGCWhileWaiting =
           taskManager.getSuperstepGCTime() - startGCTime;
       timeDoingGC += timeDoingGCWhileWaiting;
@@ -199,22 +201,32 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
       startGCTime = taskManager.getSuperstepGCTime();
       try {
         serviceWorker.getServerData().resolvePartitionMutation(partition);
+        LOG.info("passed serviceWorker.getServerData().resolvePartitionMutation ");
+
         PartitionStats partitionStats = computePartition(
             computation, partition, oocEngine,
             serviceWorker.getConfiguration().getIncomingMessageClasses()
               .ignoreExistingVertices());
         partitionStatsList.add(partitionStats);
+
+        LOG.info("passed computePartition ");
+
         long partitionMsgs = workerClientRequestProcessor.resetMessageCount();
         partitionStats.addMessagesSentCount(partitionMsgs);
         messagesSentCounter.inc(partitionMsgs);
+        LOG.info("passed partitionMsgs ");
+
         long partitionMsgBytes =
           workerClientRequestProcessor.resetMessageBytesCount();
         partitionStats.addMessageBytesSentCount(partitionMsgBytes);
         messageBytesSentCounter.inc(partitionMsgBytes);
+        LOG.info("passed partitionMsgBytes ");
+
         timedLogger.info("call: Completed " +
             partitionStatsList.size() + " partitions, " +
             partitionStore.getNumPartitions() + " remaining " +
             MemoryUtils.getRuntimeMemoryStats());
+
         long timeDoingGCWhileProcessing =
             taskManager.getSuperstepGCTime() - startGCTime;
         timeDoingGC += timeDoingGCWhileProcessing;
@@ -223,6 +235,8 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
                 timeDoingGCWhileProcessing;
         timeProcessing += timeProcessingPartition;
         partitionStats.setComputeMs(timeProcessingPartition);
+        LOG.info("passed setComputeMs ");
+
       } catch (IOException e) {
         throw new IllegalStateException("call: Caught unexpected IOException," +
             " failing.", e);

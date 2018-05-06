@@ -183,6 +183,7 @@ public class BspServiceWorker<I extends WritableComparable,
   // optimistic recovery
   WorkerInfo missingWorker;
   List<PartitionStats> tmpPartitionStatsList;
+  PartitionStore<I,V,E> tmpPartitionStore;
 
   /**
    * Constructor for setting up the worker.
@@ -990,6 +991,7 @@ else[HADOOP_NON_SECURE]*/
         if(HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
           try {
             storeCheckpoint();
+            HybridUtils.printCheckpointSuccess(getConfiguration().getHybridHomeDir(), workerInfo);
           } catch (IOException e) {
             e.printStackTrace();
           }

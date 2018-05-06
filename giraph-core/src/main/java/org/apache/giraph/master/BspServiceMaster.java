@@ -1797,7 +1797,6 @@ public class BspServiceMaster<I extends WritableComparable,
         false)) {
       System.out.println("BSPServiceMaster: fail when doing superstep " + getSuperstep());
 
-
       // optimistic recovery
       System.out.println("Print Worker After Fail");
       List<WorkerInfo> workerAfterFail = new ArrayList<WorkerInfo>();
@@ -1852,7 +1851,6 @@ public class BspServiceMaster<I extends WritableComparable,
       HybridUtils.printWorkerInfoList(newWorker);
       LOG.info("coordinateSuperstep: passed read newWorker");
 
-
       // update the choosen worker
       workerAfterFail.addAll(newWorker);
       System.out.println("update worker after fail");
@@ -1860,15 +1858,21 @@ public class BspServiceMaster<I extends WritableComparable,
       LOG.info("coordinateSuperstep: passed updateChoosenWorker");
 
       // barrier to wait for the checkpoint
-      String workerWroteCheckpointPathTemp =
-              getWorkerWroteCheckpointPath(getApplicationAttempt(),
-                      getSuperstep());
+//      String workerWroteCheckpointPathTemp =
+//              getWorkerWroteCheckpointPath(getApplicationAttempt(),
+//                      getSuperstep());
 
       // wait until the checkpoint writing is finished
-      barrierOnWorkerList(workerWroteCheckpointPathTemp,
-              workerAfterFail,
-              getWorkerWroteCheckpointEvent(),
-              true);
+//      barrierOnWorkerList(workerWroteCheckpointPathTemp,
+//              workerAfterFail,
+//              getWorkerWroteCheckpointEvent(),
+//              true);
+      String checkpoint_dir = "/checkpoint_dir/";
+      while(!HybridUtils.barrierOnHybridFolder(getConfiguration().getHybridHomeDir(),
+              checkpoint_dir,workerAfterFail.size())){
+        LOG.info("barrierOnHybridFolder " + checkpoint_dir + " size " + chosenWorkerInfoList.size());
+        TimeUnit.SECONDS.sleep(2); // check every two seconds
+      }
 
       LOG.info("coordinateSuperstep: barrierOnWorkerList passed");
 

@@ -454,14 +454,14 @@ public class HybridUtils {
   public static void printPartitionStatsListToFile(List<PartitionStats> statsList,
                                                    String homeDir, WorkerInfo worker){
     String fullFilename = homeDir + "/partitionStats_dir/"
-            + worker.getHostnameId() + ".txt";
+            + worker.getTaskId() + ".txt";
 
-    Collections.sort(statsList, new Comparator<PartitionStats>() {
-      @Override
-      public int compare(PartitionStats o1, PartitionStats o2) {
-        return o1.getPartitionId() - o2.getPartitionId();
-      }
-    });
+//    Collections.sort(statsList, new Comparator<PartitionStats>() {
+//      @Override
+//      public int compare(PartitionStats o1, PartitionStats o2) {
+//        return o1.getPartitionId() - o2.getPartitionId();
+//      }
+//    });
 
     java.nio.file.Path p = Paths.get(fullFilename);
     if(Files.exists(p)){
@@ -616,6 +616,20 @@ public class HybridUtils {
 
     java.nio.file.Path p = Paths.get(fullFilename);
     if(Files.exists(p)){
+      result = true;
+    }
+
+    return result;
+  }
+
+  public static boolean barrierOnHybridFolder(String homeDir, String dir, int numOfFiles){
+    boolean result = false;
+
+    String fullDirectoryName = homeDir + dir;
+
+    File fullDirectory = new File(fullDirectoryName);
+
+    if(fullDirectory.listFiles().length == numOfFiles){
       result = true;
     }
 

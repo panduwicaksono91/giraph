@@ -395,11 +395,14 @@ public class ServerData<I extends WritableComparable,
     ConcurrentMap<I, VertexMutations<I, V, E>> prevPartitionMutations =
         oldPartitionMutations.get(partitionId);
 
+    LOG.info("resolvePartitionMutation: passed ConcurrentMap");
+
     boolean ignoreExistingVertices =
         conf.getIncomingMessageClasses().ignoreExistingVertices();
 
     // Resolve mutations that are explicitly sent for this partition
     if (prevPartitionMutations != null) {
+      LOG.info("resolvePartitionMutation: if prevPartitionMutations != null");
       for (Map.Entry<I, VertexMutations<I, V, E>> entry : prevPartitionMutations
           .entrySet()) {
         I vertexId = entry.getKey();
@@ -432,6 +435,7 @@ public class ServerData<I extends WritableComparable,
     }
 
     if (!ignoreExistingVertices) {
+      LOG.info("resolvePartitionMutation: !ignoreExistingVertices");
       // Keep track of vertices which are not here in the partition, but have
       // received messages
       Iterable<I> destinations = getCurrentMessageStore().
