@@ -77,12 +77,7 @@ import org.apache.giraph.metrics.ResetSuperstepMetricsObserver;
 import org.apache.giraph.metrics.SuperstepMetricsRegistry;
 import org.apache.giraph.metrics.WorkerSuperstepMetrics;
 import org.apache.giraph.ooc.OutOfCoreEngine;
-import org.apache.giraph.partition.Partition;
-import org.apache.giraph.partition.PartitionExchange;
-import org.apache.giraph.partition.PartitionOwner;
-import org.apache.giraph.partition.PartitionStats;
-import org.apache.giraph.partition.PartitionStore;
-import org.apache.giraph.partition.WorkerGraphPartitioner;
+import org.apache.giraph.partition.*;
 import org.apache.giraph.utils.*;
 import org.apache.giraph.zk.BspEvent;
 import org.apache.giraph.zk.PredicateLock;
@@ -183,7 +178,6 @@ public class BspServiceWorker<I extends WritableComparable,
   // optimistic recovery
   WorkerInfo missingWorker;
   List<PartitionStats> tmpPartitionStatsList;
-  PartitionStore<I,V,E> tmpPartitionStore;
 
   /**
    * Constructor for setting up the worker.
@@ -2165,5 +2159,4 @@ else[HADOOP_NON_SECURE]*/
 
     return result;
   }
-
 }

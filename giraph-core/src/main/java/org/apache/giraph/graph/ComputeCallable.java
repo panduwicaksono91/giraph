@@ -293,6 +293,8 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
       throw new IllegalStateException("call: Flushing failed.", e);
     } catch (IllegalStateException e){ // optimistic recovery
       LOG.info("bypass flushing");
+    } catch (IllegalArgumentException e){
+      LOG.info("bypass flushing");
     }
     if (oocEngine != null) {
       oocEngine.processingThreadFinish();

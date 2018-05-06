@@ -34,6 +34,8 @@ import org.apache.hadoop.io.NullWritable;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
+import java.lang.IllegalArgumentException;
+import java.lang.IllegalStateException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -97,7 +99,14 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
 //            + " " + getConf().getTaskPartition() + " " +
 //            "Vertex " + vertex.getId() + " sent to " +
 //            edge.getTargetVertexId() + " = " + distance);
-          sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
+          try {
+            sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
+          } catch (IllegalArgumentException e){
+
+          } catch (IllegalStateException e){
+
+          }
+
         }
       }
     }
@@ -143,7 +152,13 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
 //                + " " + getConf().getTaskPartition() + " " +
 //                "Vertex " + vertex.getId() + " sent to " +
 //                edge.getTargetVertexId() + " = " + distance);
-        sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
+        try {
+          sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
+        } catch (IllegalArgumentException e){
+
+        } catch (IllegalStateException e){
+
+        }
       }
     }
 

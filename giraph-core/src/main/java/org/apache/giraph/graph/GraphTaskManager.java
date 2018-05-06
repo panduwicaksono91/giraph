@@ -402,12 +402,13 @@ end[PURE_YARN]*/
           numThreads + " compute thread(s), originally " +
           numComputeThreads + " thread(s) on superstep " + superstep);
       }
+
       partitionStatsList.clear();
 
       // execute the current superstep
       if (numPartitions > 0) {
-        processGraphPartitions(context, partitionStatsList, graphState,
-          messageStore, numThreads);
+          processGraphPartitions(context, partitionStatsList, graphState,
+                  messageStore, numThreads);
       }
       finishedSuperstepStats = completeSuperstepAndCollectStats(
         partitionStatsList, superstepTimerContext);
