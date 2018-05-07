@@ -183,6 +183,7 @@ public class BspServiceMaster<I extends WritableComparable,
   /** Optimistic recovery */
 //  private Collection<PartitionOwner> fixedPartitionOwners;
 //  private String partitionOwnersDir = "/home/pandu/Desktop/windows-share";
+  private WorkerInfo missingWorker;
 
   /**
    * Constructor for setting up the master.
@@ -1545,6 +1546,7 @@ public class BspServiceMaster<I extends WritableComparable,
 //          return false;
 
           // optimistic recovery
+          missingWorker = deadWorkers.iterator().next();
           LOG.error("barrierOnWorkerList: Missing chosen " +
                     "workers " + deadWorkers +
                     " on superstep " + getSuperstep());
@@ -1802,64 +1804,66 @@ public class BspServiceMaster<I extends WritableComparable,
       }
 
       // optimistic recovery
-      System.out.println("Print Worker After Fail");
-      List<WorkerInfo> workerAfterFail = new ArrayList<WorkerInfo>();
-      WorkerInfo missingWorker = new WorkerInfo();
+//      System.out.println("Print Worker After Fail");
+//      List<WorkerInfo> workerAfterFail = new ArrayList<WorkerInfo>();
+//      WorkerInfo missingWorker = new WorkerInfo();
 
-	    for (WorkerInfo workerInfo : chosenWorkerInfoList) {
-        String workerInfoHealthyPath =
-            getWorkerInfoHealthyPath(getApplicationAttempt(),
-                getSuperstep()) + "/" +
-                workerInfo.getHostnameId();
-        if (getZkExt().exists(workerInfoHealthyPath, true) == null) {
-          // save the missing worker
-          missingWorker = workerInfo;
+//	    for (WorkerInfo workerInfo : chosenWorkerInfoList) {
+//        String workerInfoHealthyPath =
+//            getWorkerInfoHealthyPath(getApplicationAttempt(),
+//                getSuperstep()) + "/" +
+//                workerInfo.getHostnameId();
+//        if (getZkExt().exists(workerInfoHealthyPath, true) == null) {
+//          // save the missing worker
+//          missingWorker = workerInfo;
+//
+//          // log the error
+//          LOG.warn("coordinateSuperstep: Chosen worker " +
+//              workerInfoHealthyPath +
+//              " is no longer valid, failing superstep");
+//		    System.out.println("coordinateSuperstep: Chosen worker " +
+//              workerInfoHealthyPath +
+//              " is no longer valid, failing superstep");
+//        } else {
+//          workerAfterFail.add(workerInfo);
+//        }
+//      }
 
-          // log the error
-          LOG.warn("coordinateSuperstep: Chosen worker " +
-              workerInfoHealthyPath +
-              " is no longer valid, failing superstep");
-		    System.out.println("coordinateSuperstep: Chosen worker " +
-              workerInfoHealthyPath +
-              " is no longer valid, failing superstep");
-        } else {
-          workerAfterFail.add(workerInfo);
-        }
-      }
-
-      System.out.println("workerAfterFail");
-      HybridUtils.printWorkerInfoList(workerAfterFail);
-      System.out.println("print worker info list to file");
+//      System.out.println("workerAfterFail");
+//      HybridUtils.printWorkerInfoList(workerAfterFail);
+//      System.out.println("print worker info list to file");
       HybridUtils.printWorkerInfoListToFile(chosenWorkerInfoList, getConfiguration().getHybridHomeDir(),
               "workerInfoList.txt");
-      LOG.info("coordinateSuperstep: passed printing workerInfo");
+//      LOG.info("coordinateSuperstep: passed printing workerInfo");
 
 	    System.out.println("notify Netty client");
       HybridUtils.notifyNettyClient(getConfiguration().getHybridHomeDir(),missingWorker);
+//      HybridUtils.notifyNettyClient(getConfiguration().getHybridHomeDir());
       LOG.info("coordinateSuperstep: passed notifyNettyClient");
 
       // read the new worker
-      List<WorkerInfo> newWorker = null;
-      while(newWorker == null){
-        LOG.info("coordinateSuperstep: while loop read newWorker");
-        try {
-              TimeUnit.SECONDS.sleep(1);
-            } catch (InterruptedException e) {
-              e.printStackTrace();
-            }
-        newWorker = HybridUtils.readWorkerInfoListFromFile(getConfiguration().getHybridHomeDir(),
-                "newWorker.txt");
-      }
-	  
-      System.out.println("print new worker");
-      HybridUtils.printWorkerInfoList(newWorker);
-      LOG.info("coordinateSuperstep: passed read newWorker");
-
-      // update the choosen worker
-      workerAfterFail.addAll(newWorker);
-      System.out.println("update worker after fail");
-      HybridUtils.printWorkerInfoList(workerAfterFail);
-      LOG.info("coordinateSuperstep: passed updateChoosenWorker");
+      // updated
+//      List<WorkerInfo> newWorker = null;
+//      while(newWorker == null){
+//        LOG.info("coordinateSuperstep: while loop read newWorker");
+//        try {
+//              TimeUnit.SECONDS.sleep(1);
+//            } catch (InterruptedException e) {
+//              e.printStackTrace();
+//            }
+//        newWorker = HybridUtils.readWorkerInfoListFromFile(getConfiguration().getHybridHomeDir(),
+//                "newWorker.txt");
+//      }
+//
+//      System.out.println("print new worker");
+//      HybridUtils.printWorkerInfoList(newWorker);
+//      LOG.info("coordinateSuperstep: passed read newWorker");
+//
+//      // update the choosen worker
+//      workerAfterFail.addAll(newWorker);
+//      System.out.println("update worker after fail");
+//      HybridUtils.printWorkerInfoList(workerAfterFail);
+//      LOG.info("coordinateSuperstep: passed updateChoosenWorker");
 
       // barrier to wait for the checkpoint
 //      String workerWroteCheckpointPathTemp =
@@ -1873,9 +1877,9 @@ public class BspServiceMaster<I extends WritableComparable,
 //              true);
       String checkpoint_dir = "/checkpoint_dir/";
       while(!HybridUtils.barrierOnHybridFolder(getConfiguration().getHybridHomeDir(),
-              checkpoint_dir,workerAfterFail.size())){
+              checkpoint_dir,chosenWorkerInfoList.size())){
         LOG.info("barrierOnHybridFolder " + checkpoint_dir + " size " + chosenWorkerInfoList.size());
-        TimeUnit.SECONDS.sleep(2); // check every two seconds
+        TimeUnit.SECONDS.sleep(1); // check every two seconds
       }
 
       LOG.info("coordinateSuperstep: barrierOnWorkerList passed");

@@ -516,30 +516,31 @@ public class BspServiceWorker<I extends WritableComparable,
 
       // print this worker
 
-      String newWorker = "newWorker.txt";
-      List<WorkerInfo> thisWorker = new ArrayList<WorkerInfo>();
-      thisWorker.add(getWorkerInfo());
-      HybridUtils.printWorkerInfoListToFile(thisWorker,getConfiguration().getHybridHomeDir(),newWorker);
-      LOG.info("setup: print this worker to file passed");
+//      String newWorker = "newWorker.txt";
+//      List<WorkerInfo> thisWorker = new ArrayList<WorkerInfo>();
+//      thisWorker.add(getWorkerInfo());
+//      HybridUtils.printWorkerInfoListToFile(thisWorker,getConfiguration().getHybridHomeDir(),newWorker);
+//      LOG.info("setup: print this worker to file passed");
 
       // get the info
       List<WorkerInfo> chosenWorkerInfo = HybridUtils.readWorkerInfoListFromFile(getConfiguration().getHybridHomeDir(),
               "workerInfoList.txt");
+
+      workerInfoList = chosenWorkerInfo;
+
       missingWorker = HybridUtils.getMissingWorker(getConfiguration().getHybridHomeDir());
-	    LOG.info("setup: print missingWorker " + missingWorker.toString());
-	  
+
       // get the index
-      int missingIndex = chosenWorkerInfo.indexOf(missingWorker);
+      int missingIndex = workerInfoList.indexOf(missingWorker);
 	    LOG.info("setup: print missingIndex " + missingIndex);
 
       // update the workerInfoList
-      workerInfoList = chosenWorkerInfo;
       workerInfoList.get(missingIndex).setHostname(getWorkerInfo().getHostname());
       workerInfoList.get(missingIndex).setPort(getWorkerInfo().getPort());
       workerInfoList.get(missingIndex).setTaskId(getWorkerInfo().getTaskId());
       workerInfoList.get(missingIndex).setHostOrIp(getWorkerInfo().getHostOrIp());
 
-      LOG.info("setup: workerInfoList");
+//      LOG.info("setup: workerInfoList");
 
       if(!HybridUtils.checkCheckpointFinished(getConfiguration().getHybridHomeDir(), workerInfo)){
         compensate();
@@ -1624,6 +1625,7 @@ else[HADOOP_NON_SECURE]*/
     LOG.info("loadCheckpoint: superstep " + superstep);
     Path metadataFilePath = getSavedCheckpoint(
         superstep, CheckpointingUtils.CHECKPOINT_METADATA_POSTFIX);
+    LOG.info("loadCheckpoint: metadataFilePath " + metadataFilePath.toString());
 
     Path checkpointFilePath = getSavedCheckpoint(
         superstep, CheckpointingUtils.CHECKPOINT_DATA_POSTFIX);
@@ -1636,7 +1638,6 @@ else[HADOOP_NON_SECURE]*/
           getFs().open(metadataFilePath);
 
       int partitions = metadataStream.readInt();
-      LOG.info("loadCheckpoint: partitions " + partitions);
 
       List<Integer> partitionIds = new ArrayList<>(partitions);
 
@@ -2088,7 +2089,7 @@ else[HADOOP_NON_SECURE]*/
 
     String finishedWorkerPath =
             getWorkerFinishedPath(getApplicationAttempt(), getSuperstep()) +
-                    "/" + missingWorker.getHostnameId();
+                    "/" + workerInfo.getHostnameId();
     try {
       getZkExt().createExt(finishedWorkerPath,
               workerFinishedInfoObj.toString().getBytes(Charset.defaultCharset()),
@@ -2163,4 +2164,5 @@ else[HADOOP_NON_SECURE]*/
 
     return result;
   }
+
 }
