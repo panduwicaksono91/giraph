@@ -501,10 +501,10 @@ public class BspServiceWorker<I extends WritableComparable,
 
     // optimistic recovery
     // if worker is restarted
-    if(checkWorkerRestarted()){
+    if(getConfiguration().getRecoveryMode().equals("o") && checkWorkerRestarted()){
       LOG.info("setup: checkWorkerRestarted");
       while(!HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
-	    LOG.info("setup: whileLoop");
+	      LOG.info("setup: whileLoop");
         try {
           TimeUnit.SECONDS.sleep(1);
         } catch (InterruptedException e) {
@@ -982,7 +982,8 @@ else[HADOOP_NON_SECURE]*/
         // optimistic recovery
         LOG.info("waitForOtherWorkers: waiting for " + superstepFinishedNode);
 
-        if(HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
+        if(getConfiguration().getRecoveryMode().equals("o") &&
+                HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
           try {
             storeCheckpoint();
             HybridUtils.printCheckpointSuccess(getConfiguration().getHybridHomeDir(), workerInfo);
@@ -1704,9 +1705,12 @@ else[HADOOP_NON_SECURE]*/
       workerClient.setup();
 else[HADOOP_NON_SECURE]*/
       // optimistic recovery
-      if(!HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())) {
+      if(getConfiguration().getRecoveryMode().equals("p")){
+        workerClient.setup(getConfiguration().authenticate());
+      } else if(!HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())) {
         workerClient.setup(getConfiguration().authenticate());
       }
+
       /*end[HADOOP_NON_SECURE]*/
       return new VertexEdgeCount(globalStats.getVertexCount(),
           globalStats.getEdgeCount(), 0);

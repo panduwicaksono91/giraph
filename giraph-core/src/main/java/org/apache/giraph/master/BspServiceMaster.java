@@ -1497,11 +1497,11 @@ public class BspServiceMaster<I extends WritableComparable,
                           "worker that was pronounced dead: " + deadWorker +
                           " on superstep " + getSuperstep());
 			
-			// optimistic recovery
-			if(!ignoreDeath) {
-				return false;
-			}
-		  }
+            // optimistic recovery
+            if(!ignoreDeath) {
+              return false;
+            }
+		      }
         }
 
         // wall-clock time skew is ignored
@@ -1797,6 +1797,10 @@ public class BspServiceMaster<I extends WritableComparable,
         false)) {
       System.out.println("BSPServiceMaster: fail when doing superstep " + getSuperstep());
 
+      if(getConfiguration().getRecoveryMode().equals("p")){ // pessimistic recovery
+        return SuperstepState.WORKER_FAILURE;
+      }
+
       // optimistic recovery
       System.out.println("Print Worker After Fail");
       List<WorkerInfo> workerAfterFail = new ArrayList<WorkerInfo>();
@@ -2038,11 +2042,27 @@ public class BspServiceMaster<I extends WritableComparable,
 //    return CheckpointStatus.NONE;
 
     // optimistic recovery
-
     long firstCheckpoint = INPUT_SUPERSTEP + 1;
 
     if(superstep == firstCheckpoint){
       return CheckpointStatus.CHECKPOINT;
+    }
+
+    // pessimistic recovery
+    if(getConfiguration().getRecoveryMode().equals("p")){
+      if (getRestartedSuperstep() != UNSET_SUPERSTEP) {
+        firstCheckpoint = getRestartedSuperstep() + checkpointFrequency;
+      }
+
+      if (superstep < firstCheckpoint) {
+        return CheckpointStatus.NONE;
+      }
+
+      if (((superstep - firstCheckpoint) % checkpointFrequency) == 0) {
+        if (isCheckpointingSupported(getConfiguration(), masterCompute)) {
+          return CheckpointStatus.CHECKPOINT;
+        }
+      }
     }
 
     return CheckpointStatus.NONE;

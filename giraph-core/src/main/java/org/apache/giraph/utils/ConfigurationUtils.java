@@ -96,7 +96,8 @@ end[PURE_YARN]*/
         "List of superstep to kill separated by comma");
     OPTIONS.addOption("dir", "homeDir", true,
             "Home directory for hybrid recovery purpose");
-
+    OPTIONS.addOption("m", "recoveryMode", true,
+            "Recovery mode");
 
 
     OPTIONS.addOption("h", "help", false, "Help");
@@ -365,6 +366,10 @@ end[PURE_YARN]*/
 
     if (cmd.hasOption("dir")) {
       conf.setHybridHomeDir(cmd.getOptionValue("dir"));
+    }
+
+    if (cmd.hasOption("m")) {
+      conf.setRecoveryMode(cmd.getOptionValue("m"));
     }
 
     if (cmd.hasOption("vof")) {

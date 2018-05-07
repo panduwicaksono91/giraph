@@ -114,6 +114,10 @@ public interface GiraphConstants {
   StrConfOption HYBRID_HOME_DIR = new StrConfOption("giraph.hybridHomeDir",
           "/home/pandu/Desktop/windows-share", "home directory for hybrid recovery");
 
+  /** Recovery mode */
+  StrConfOption RECOVERY_MODE = new StrConfOption("giraph.recoveryMode",
+          "o", "recovery mode");
+
   /** Mapping related information */
   ClassConfOption<MappingStore> MAPPING_STORE_CLASS =
       ClassConfOption.create("giraph.mappingStoreClass", null,

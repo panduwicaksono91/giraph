@@ -124,6 +124,22 @@ public class GiraphConfiguration extends Configuration
   }
 
   /**
+   * Set recovery mode
+   * @author Pandu Wicaksono
+   */
+  public final void setRecoveryMode(String recoveryMode){
+    RECOVERY_MODE.set(this, recoveryMode);
+  }
+
+  /**
+   * Get the recovery mode
+   * @author Pandu Wicaksono
+   */
+  public final String getRecoveryMode(){
+    return RECOVERY_MODE.get(this);
+  }
+
+  /**
    * Get name of computation being run. We leave this up to the
    * {@link ComputationFactory} to decide what to return.
    *
