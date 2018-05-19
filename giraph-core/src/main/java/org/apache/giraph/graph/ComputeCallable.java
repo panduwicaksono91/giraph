@@ -374,8 +374,8 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
           }
 
           // optimistic recovery
-          if(vertex.isHalted() &&
-                  (serviceWorker.getSuperstep() == serviceWorker.getRestartedSuperstep())){
+          if(configuration.getRecoveryMode().equals("o") && vertex.isHalted() &&
+            (serviceWorker.getSuperstep() == serviceWorker.getRestartedSuperstep())){
             vertex.wakeUp();
           }
 

@@ -99,13 +99,13 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
 //            + " " + getConf().getTaskPartition() + " " +
 //            "Vertex " + vertex.getId() + " sent to " +
 //            edge.getTargetVertexId() + " = " + distance);
-          try {
+//          try {
             sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
-          } catch (IllegalArgumentException e){
+//          } catch (IllegalArgumentException e){
 
-          } catch (IllegalStateException e){
+//          } catch (IllegalStateException e){
 
-          }
+//          }
 
         }
       }
@@ -116,11 +116,11 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
 //      System.out.println("Kill process in superstep " + getSuperstep()
 //              + " at attempt " + getContext().getTaskAttemptID().getId());
       HybridUtils.markKillingProcess(getConf().getHybridHomeDir(), (int)getSuperstep());
-      try {
-        TimeUnit.SECONDS.sleep(30);
-      } catch (InterruptedException e) {
-        e.printStackTrace();
-      }
+//      try {
+//        TimeUnit.SECONDS.sleep(30);
+//      } catch (InterruptedException e) {
+//        e.printStackTrace();
+//      }
       System.exit(-1);
     }
 
@@ -152,13 +152,13 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
 //                + " " + getConf().getTaskPartition() + " " +
 //                "Vertex " + vertex.getId() + " sent to " +
 //                edge.getTargetVertexId() + " = " + distance);
-        try {
+//        try {
           sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
-        } catch (IllegalArgumentException e){
+//        } catch (IllegalArgumentException e){
 
-        } catch (IllegalStateException e){
+//        } catch (IllegalStateException e){
 
-        }
+//        }
       }
     }
 

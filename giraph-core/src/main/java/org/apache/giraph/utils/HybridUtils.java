@@ -145,11 +145,6 @@ public class HybridUtils {
   public static void printWorkerInfoListToFile(List<WorkerInfo> workers, String homeDir, String filename){
     String fullFilename = homeDir + "/" + filename;
 
-    java.nio.file.Path p = Paths.get(fullFilename);
-    if(Files.exists(p)){
-      return;
-    }
-
     try {
       PrintWriter writer = new PrintWriter(fullFilename, "UTF-8");
       for(WorkerInfo workerInfo : workers){
@@ -283,51 +278,20 @@ public class HybridUtils {
   public static void deleteOptimisticFile(String homeDir){
 //    LOG.info("deleteOptimisticFile: starts");
     String dir = homeDir;
-    String optimistic_signaltxt = "/optimistic_signal.txt";
-    String workerInfoListtxt = "/workerInfoList.txt";
-    String newWorkertxt = "/newWorker.txt";
+//    String optimistic_signaltxt = "/optimistic_signal.txt";
+//    String workerInfoListtxt = "/workerInfoList.txt";
 
-
-    File file = new File(dir + optimistic_signaltxt);
+//    File file = new File(dir + optimistic_signaltxt);
 //    LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
-    file.delete();
+//    file.delete();
 
-    file = new File(dir + workerInfoListtxt);
+//    file = new File(dir + workerInfoListtxt);
 //    LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
-    file.delete();
-
-    file = new File(dir + newWorkertxt);
-//    LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
-    file.delete();
-
+//    file.delete();
 
     deleteAllFilesInDirectory(homeDir, "/optimistic_dir/");
 //    deleteAllFilesInDirectory(homeDir, "/partitionStats_dir/");
     deleteAllFilesInDirectory(homeDir, "/checkpoint_dir/");
-
-//    String optimistic_dir = homeDir + "/optimistic_dir/";
-//    File optimistic_directory = new File(optimistic_dir);
-//
-////    LOG.info("deleteOptimisticFile: for loop delete file");
-//    for(File tmpFile: optimistic_directory.listFiles()) {
-////      LOG.info("deleteOptimisticFile: try to delete file " + tmpFile.toPath());
-//      if (!tmpFile.isDirectory()) {
-//        tmpFile.delete();
-////        LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
-//      }
-//    }
-//
-//    String partitionStats_dir = homeDir + "/partitionStats_dir/";
-//    File partitionStats_directory = new File(partitionStats_dir);
-//
-////    LOG.info("deleteOptimisticFile: for loop delete file");
-//    for(File tmpFile: partitionStats_directory.listFiles()) {
-////      LOG.info("deleteOptimisticFile: try to delete file " + tmpFile.toPath());
-//      if (!tmpFile.isDirectory()) {
-//        tmpFile.delete();
-////        LOG.info("deleteOptimisticFile: file deleted " + tmpFile.toPath());
-//      }
-//    }
   }
 
   /**
