@@ -112,7 +112,7 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
     }
 
     // check whether to kill this process or not
-    if(killProcessEnabled(getConf().getSuperstepToKill())){
+    if(killProcessEnabled(getConf().getSuperstepToKill(), getConf().getWorkerToKill())){
 //      System.out.println("Kill process in superstep " + getSuperstep()
 //              + " at attempt " + getContext().getTaskAttemptID().getId());
       HybridUtils.markKillingProcess(getConf().getHybridHomeDir(), (int)getSuperstep());
@@ -172,41 +172,39 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
    * @author Pandu Wicaksono
    * @return instruction to kill this process
    */
-  private boolean killProcessEnabled(String superstepToKill){
+  private boolean killProcessEnabled(String superstepToKill, String workerToKill){
     boolean result = false;
 
 //    System.out.println("Check killProcessEnabled");
 //    System.out.println("superstepToKill: " + superstepToKill);
 
+    // superstep to kill
     // parse the string
     String superstepToKillArray[] = superstepToKill.split(",");
-
     // default value
     if(superstepToKillArray.length == 1 && superstepToKillArray[0].equals("")){
-//	  System.out.println("superstepToKillArray[0]: " + superstepToKillArray[0]);
-//	  System.out.println("no need to kill");
       return false;
     }
-
-//    System.out.println("Check list");
-
     // parse into integer
     List<Integer> superstepToKillList = new ArrayList<Integer>();
     for(int ii = 0; ii < superstepToKillArray.length; ii++){
       superstepToKillList.add(Integer.parseInt(superstepToKillArray[ii]));
-//	  System.out.println(superstepToKillList.get(ii));
     }
 
-    int index = superstepToKillList.indexOf((int)getSuperstep());
-//    System.out.println("Check killProcessEnabled index: " + index + " superstep: " + getSuperstep());
-//    int numOfAttempt = getContext().getTaskAttemptID().getId();
-
-//	  System.out.println("Check equal superstep: " + superstepToKillList.contains((int)getSuperstep()));
+    // worker to kill
+    String workerToKillArray[] = workerToKill.split(",");
+    if(workerToKillArray.length == 1 && workerToKillArray[0].equals("")){
+      return false;
+    }
+    List<Integer> workerToKillList = new ArrayList<Integer>();
+    for(int ii = 0; ii < workerToKillArray.length; ii++){
+      workerToKillList.add(Integer.parseInt(workerToKillArray[ii]));
+    }
 
     boolean attempt = (!HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),(int)getSuperstep()))
             ? true : false;
     boolean superstep_to_kill = (superstepToKillList.contains((int)getSuperstep())) ? true : false;
-    boolean failed_worker = (getWorkerContext().getMyWorkerIndex() == 0) ? true : false;
+    boolean failed_worker = (workerToKillList.contains(getWorkerContext().getMyWorkerIndex())) ? true : false;
 
     result = (attempt && superstep_to_kill && failed_worker);
 

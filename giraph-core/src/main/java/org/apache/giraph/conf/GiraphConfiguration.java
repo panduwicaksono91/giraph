@@ -140,6 +140,22 @@ public class GiraphConfiguration extends Configuration
   }
 
   /**
+   * Set worker to kill
+   * @author Pandu Wicaksono
+   */
+  public final void setWorkerToKill(String workerToKill){
+    WORKER_TO_KILL.set(this, workerToKill);
+  }
+
+  /**
+   * Get the worker to kill
+   * @author Pandu Wicaksono
+   */
+  public final String getWorkerToKill(){
+    return WORKER_TO_KILL.get(this);
+  }
+
+  /**
    * Get name of computation being run. We leave this up to the
    * {@link ComputationFactory} to decide what to return.
    *

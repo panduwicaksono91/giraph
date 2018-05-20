@@ -118,6 +118,10 @@ public interface GiraphConstants {
   StrConfOption RECOVERY_MODE = new StrConfOption("giraph.recoveryMode",
           "o", "recovery mode");
 
+  /** Worker to kill */
+  StrConfOption WORKER_TO_KILL = new StrConfOption("giraph.workerToKill",
+          "", "worker to kill");
+
   /** Mapping related information */
   ClassConfOption<MappingStore> MAPPING_STORE_CLASS =
       ClassConfOption.create("giraph.mappingStoreClass", null,

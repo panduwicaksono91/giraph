@@ -98,7 +98,8 @@ end[PURE_YARN]*/
             "Home directory for hybrid recovery purpose");
     OPTIONS.addOption("m", "recoveryMode", true,
             "Recovery mode");
-
+    OPTIONS.addOption("wk", "workerToKill", true,
+            "List of worker to kill");
 
     OPTIONS.addOption("h", "help", false, "Help");
     OPTIONS.addOption("la", "listAlgorithms", false, "List supported " +
@@ -370,6 +371,10 @@ end[PURE_YARN]*/
 
     if (cmd.hasOption("m")) {
       conf.setRecoveryMode(cmd.getOptionValue("m"));
+    }
+
+    if (cmd.hasOption("wk")) {
+      conf.setWorkerToKill(cmd.getOptionValue("wk"));
     }
 
     if (cmd.hasOption("vof")) {
