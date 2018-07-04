@@ -46,6 +46,8 @@ public abstract class WorkerContext
   /** All workers info */
   private AllWorkersInfo allWorkersInfo;
 
+  private int restartedSuperstep;
+
   /**
    * Set the graph state.
    *
@@ -65,6 +67,7 @@ public abstract class WorkerContext
     this.serviceWorker = serviceWorker;
     allWorkersInfo = new AllWorkersInfo(
         serviceWorker.getWorkerInfoList(), serviceWorker.getWorkerInfo());
+    this.restartedSuperstep = (int)serviceWorker.getRestartedSuperstep();
   }
 
   /**
@@ -207,5 +210,13 @@ public abstract class WorkerContext
 
   @Override
   public void readFields(DataInput dataInput) throws IOException {
+  }
+
+  public void setRestartedSuperstep(int restartedSuperstep){
+    this.restartedSuperstep = restartedSuperstep;
+  }
+
+  public int getRestartedSuperstep(){
+    return restartedSuperstep;
   }
 }

@@ -176,6 +176,7 @@ public class BspServiceWorker<I extends WritableComparable,
   private final MemoryObserver memoryObserver;
 
   // optimistic recovery
+  List<WorkerInfo> missingWorkerList;
   WorkerInfo missingWorker;
   List<PartitionStats> tmpPartitionStatsList;
 
@@ -528,9 +529,25 @@ public class BspServiceWorker<I extends WritableComparable,
 
       workerInfoList = chosenWorkerInfo;
 
-      missingWorker = HybridUtils.getMissingWorker(getConfiguration().getHybridHomeDir());
+      missingWorkerList = HybridUtils.getMissingWorker(getConfiguration().getHybridHomeDir());
 
+      LOG.info("setup: debug getMissingWorker");
+      LOG.info("setup: getWorkerInfo " + getWorkerInfo().toString());
+      LOG.info("setup: for loop");
       // get the index
+      for(WorkerInfo tmpWorkerInfo : missingWorkerList){
+        LOG.info("setup: tmpWorkerInfo " + tmpWorkerInfo.toString());
+        if(getWorkerInfo().getTaskId() == tmpWorkerInfo.getTaskId()){
+          LOG.info("setup: if condition");
+          missingWorker = new WorkerInfo();
+          missingWorker.setHostname(tmpWorkerInfo.getHostname());
+          missingWorker.setPort(tmpWorkerInfo.getPort());
+          missingWorker.setTaskId(tmpWorkerInfo.getTaskId());
+          missingWorker.setHostOrIp(tmpWorkerInfo.getHostOrIp());
+          break;
+        }
+      }
+
       int missingIndex = workerInfoList.indexOf(missingWorker);
 	    LOG.info("setup: print missingIndex " + missingIndex);
 
@@ -873,6 +890,8 @@ else[HADOOP_NON_SECURE]*/
       globalCommHandler.finishSuperstep(workerAggregatorRequestProcessor);
     } catch (IllegalArgumentException e){
       LOG.info("bypass IllegalArgumentException");
+    } catch (IllegalStateException e){
+      LOG.info("bypass IllegalStateException");
     }
 
     LOG.info("finishSuperstp: passed globalCommHandler");

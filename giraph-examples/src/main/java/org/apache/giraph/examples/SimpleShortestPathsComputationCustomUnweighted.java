@@ -75,7 +75,11 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
       vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
     }
 
-    if(compensationFunctionEnabled()){
+//    System.out.println("check superstep: " + getSuperstep()
+//            + " restarted superstep: " + getWorkerContext().getRestartedSuperstep());
+
+    if(getConf().getRecoveryMode().equals("o") &&
+            compensationFunctionEnabled((int) getSuperstep(), getWorkerContext().getRestartedSuperstep())){
 //      System.out.println("Compensate function in superstep " + getSuperstep()
 //              + " at attempt " + getContext().getTaskAttemptID().getId());
 
@@ -99,14 +103,7 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
 //            + " " + getConf().getTaskPartition() + " " +
 //            "Vertex " + vertex.getId() + " sent to " +
 //            edge.getTargetVertexId() + " = " + distance);
-//          try {
             sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
-//          } catch (IllegalArgumentException e){
-
-//          } catch (IllegalStateException e){
-
-//          }
-
         }
       }
     }
@@ -115,12 +112,9 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
     if(killProcessEnabled(getConf().getSuperstepToKill(), getConf().getWorkerToKill())){
 //      System.out.println("Kill process in superstep " + getSuperstep()
 //              + " at attempt " + getContext().getTaskAttemptID().getId());
-      HybridUtils.markKillingProcess(getConf().getHybridHomeDir(), (int)getSuperstep());
-//      try {
-//        TimeUnit.SECONDS.sleep(30);
-//      } catch (InterruptedException e) {
-//        e.printStackTrace();
-//      }
+//      HybridUtils.markKillingProcess(getConf().getHybridHomeDir(), (int)getSuperstep(),
+//              getMyWorkerIndex());
+
       System.exit(-1);
     }
 
@@ -152,13 +146,8 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
 //                + " " + getConf().getTaskPartition() + " " +
 //                "Vertex " + vertex.getId() + " sent to " +
 //                edge.getTargetVertexId() + " = " + distance);
-//        try {
-          sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
-//        } catch (IllegalArgumentException e){
 
-//        } catch (IllegalStateException e){
-
-//        }
+        sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
       }
     }
 
@@ -175,9 +164,6 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
   private boolean killProcessEnabled(String superstepToKill, String workerToKill){
     boolean result = false;
 
-//    System.out.println("Check killProcessEnabled");
-//    System.out.println("superstepToKill: " + superstepToKill);
-
     // superstep to kill
     // parse the string
     String superstepToKillArray[] = superstepToKill.split(",");
@@ -185,6 +171,11 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
     if(superstepToKillArray.length == 1 && superstepToKillArray[0].equals("")){
       return false;
     }
+
+    if((int)getSuperstep() == getWorkerContext().getRestartedSuperstep()){
+      return false;
+    }
+
     // parse into integer
     List<Integer> superstepToKillList = new ArrayList<Integer>();
     for(int ii = 0; ii < superstepToKillArray.length; ii++){
@@ -201,12 +192,14 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
       workerToKillList.add(Integer.parseInt(workerToKillArray[ii]));
     }
 
-    boolean attempt = (!HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),(int)getSuperstep()))
-            ? true : false;
+//    boolean attempt = (!HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),
+//            (int)getSuperstep(),getMyWorkerIndex()))
+//            ? true : false;
     boolean superstep_to_kill = (superstepToKillList.contains((int)getSuperstep())) ? true : false;
     boolean failed_worker = (workerToKillList.contains(getWorkerContext().getMyWorkerIndex())) ? true : false;
 
-    result = (attempt && superstep_to_kill && failed_worker);
+//    result = (attempt && superstep_to_kill && failed_worker);
+    result = (superstep_to_kill && failed_worker);
 
     return result;
   }
@@ -217,47 +210,34 @@ public class SimpleShortestPathsComputationCustomUnweighted extends BasicComputa
    * @author Pandu Wicaksono
    * @return
    */
-  private boolean compensationFunctionEnabled(){
+  private boolean compensationFunctionEnabled(int superstep, int restartedSuperstep){
     boolean result = false;
 
-//    int numberOfAttempt = getContext().getTaskAttemptID().getId();
-//    long superstep = getSuperstep();
-
-//    System.out.println("Check compensationFunctionEnabled workerID " + getMyWorkerIndex() +
-//    " attempt " + numberOfAttempt + " superstep " + superstep);
-
-    if(HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),(int)getSuperstep())){
-      result = true;
+    if(superstep != 0 && superstep == restartedSuperstep){
+      return true;
     }
 
+//    System.out.println("check compensationFunctionEnabled superstep " + getSuperstep()
+//            + " worker index " + getMyWorkerIndex());
+
+    // check the superstep
+    // if not kill superstep return false
+    // if yes check the other
+    // kill nya pindahin ke atas
+
+
+//    int firstWorkerIndex = -1;
+//
+//    try {
+//      firstWorkerIndex = Integer.parseInt(getConf().getWorkerToKill().split(",")[0]);
+//    } catch (java.lang.NumberFormatException e) {
+//
+//    }
+//
+//    if(HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),(int)getSuperstep(),firstWorkerIndex)){
+//      result = true;
+//    }
+
     return result;
-
-    // first attempt don't have to apply compensation function
-//    if(numberOfAttempt == 0){
-//      return false;
-//    }
-
-
-//    // aligns the failed superstep with the number of attempt
-//    // parse the string
-//    String superstepToKillArray[] = getConf().getSuperstepToKill().split(",");
-//
-//    // parse into integer
-//    List<Integer> superstepToKillList = new ArrayList<Integer>();
-//    for(int ii = 0; ii < superstepToKillArray.length; ii++){
-//      superstepToKillList.add(Integer.parseInt(superstepToKillArray[ii]));
-//    }
-//
-//    int index = superstepToKillList.indexOf((int)superstep);
-//
-//    // for alive worker
-//    if(getMyWorkerIndex() != 0 && ((index + 1) == numberOfAttempt)){
-//      result = true;
-//    }
-//
-//    // for failed worker
-//    if(getMyWorkerIndex() == 0 && ((index + 1)*2 == numberOfAttempt)){
-//      result = true;
-//    }
   }
 }

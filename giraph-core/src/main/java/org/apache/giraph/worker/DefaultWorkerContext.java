@@ -34,7 +34,8 @@ public class DefaultWorkerContext extends WorkerContext {
   public void postApplication() { }
 
   @Override
-  public void preSuperstep() { }
+  public void preSuperstep() {
+  }
 
   @Override
   public void postSuperstep() { }

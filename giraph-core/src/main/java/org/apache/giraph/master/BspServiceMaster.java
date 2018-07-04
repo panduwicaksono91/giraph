@@ -183,7 +183,7 @@ public class BspServiceMaster<I extends WritableComparable,
   /** Optimistic recovery */
 //  private Collection<PartitionOwner> fixedPartitionOwners;
 //  private String partitionOwnersDir = "/home/pandu/Desktop/windows-share";
-  private WorkerInfo missingWorker;
+  private List<WorkerInfo> missingWorker = new ArrayList<WorkerInfo>();
 
   /**
    * Constructor for setting up the master.
@@ -1546,7 +1546,10 @@ public class BspServiceMaster<I extends WritableComparable,
 //          return false;
 
           // optimistic recovery
-          missingWorker = deadWorkers.iterator().next();
+          for(WorkerInfo deadWorker : deadWorkers){
+            missingWorker.add(deadWorker);
+          }
+
           LOG.error("barrierOnWorkerList: Missing chosen " +
                     "workers " + deadWorkers +
                     " on superstep " + getSuperstep());
@@ -1837,7 +1840,8 @@ public class BspServiceMaster<I extends WritableComparable,
 //      LOG.info("coordinateSuperstep: passed printing workerInfo");
 
 	    System.out.println("notify Netty client");
-      HybridUtils.notifyNettyClient(getConfiguration().getHybridHomeDir(),missingWorker);
+	    LOG.info("optimistic recovery: missingWorker size " + missingWorker.size());
+      HybridUtils.notifyNettyClient(getConfiguration().getHybridHomeDir(), missingWorker);
 //      HybridUtils.notifyNettyClient(getConfiguration().getHybridHomeDir());
       LOG.info("coordinateSuperstep: passed notifyNettyClient");
 

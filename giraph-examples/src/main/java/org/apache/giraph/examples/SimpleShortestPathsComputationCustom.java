@@ -104,7 +104,7 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
     if(killProcessEnabled(getConf().getSuperstepToKill())){
       System.out.println("Kill process in superstep " + getSuperstep()
               + " at attempt " + getContext().getTaskAttemptID().getId());
-      HybridUtils.markKillingProcess(getConf().getHybridHomeDir(), (int)getSuperstep());
+      HybridUtils.markKillingProcess(getConf().getHybridHomeDir(), (int)getSuperstep(),getMyWorkerIndex());
       System.exit(-1);
     }
 
@@ -181,7 +181,8 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
 	
 	  System.out.println("Check equal superstep: " + superstepToKillList.contains((int)getSuperstep()));
 
-    boolean attempt = (!HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),(int)getSuperstep()))
+    boolean attempt = (!HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),
+            (int)getSuperstep(),getMyWorkerIndex()))
             ? true : false;
     boolean superstep_to_kill = (superstepToKillList.contains((int)getSuperstep())) ? true : false;
     boolean failed_worker = (getWorkerContext().getMyWorkerIndex() == 0) ? true : false;
@@ -206,7 +207,7 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
 //    System.out.println("Check compensationFunctionEnabled workerID " + getMyWorkerIndex() +
 //    " attempt " + numberOfAttempt + " superstep " + superstep);
 
-    if(HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),(int)getSuperstep())){
+    if(HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),(int)getSuperstep(),getMyWorkerIndex())){
       result = true;
     }
 

@@ -225,10 +225,9 @@ public class HybridUtils {
   /**
    * Notify optimistic recovery mode
    * @param homeDir
-   * @param missingWorker
+   * @param missingWorkerList
    */
-  public static void notifyNettyClient(String homeDir, WorkerInfo missingWorker){
-//    public static void notifyNettyClient(String homeDir){
+  public static void notifyNettyClient(String homeDir, List<WorkerInfo> missingWorkerList){
     String fullFilename = homeDir + "/optimistic_signal.txt";
 
     try {
@@ -237,10 +236,12 @@ public class HybridUtils {
 
       // print the missing workerInfo
       // write the worker info
-      writer.write(missingWorker.getHostname() + "\n"); // hostname 0
-      writer.write(missingWorker.getPort() + "\n"); // port 1
-      writer.write(missingWorker.getTaskId() + "\n"); // taskID 2
-      writer.write(missingWorker.getHostOrIp() + "\n"); // hostOrIp 3
+      for(WorkerInfo missingWorker : missingWorkerList) {
+        writer.write(missingWorker.getHostname() + "\n"); // hostname 0
+        writer.write(missingWorker.getPort() + "\n"); // port 1
+        writer.write(missingWorker.getTaskId() + "\n"); // taskID 2
+        writer.write(missingWorker.getHostOrIp() + "\n"); // hostOrIp 3
+      }
 
       writer.flush();
       writer.close();
@@ -455,8 +456,8 @@ public class HybridUtils {
     }
   }
 
-  public static WorkerInfo getMissingWorker(String homeDir){
-    WorkerInfo missingWorker = null;
+  public static List<WorkerInfo> getMissingWorker(String homeDir){
+    List<WorkerInfo> result = new ArrayList<WorkerInfo>();
 
     String file = homeDir + "/optimistic_signal.txt";
 
@@ -490,7 +491,7 @@ public class HybridUtils {
           workerInfo.setTaskId(Integer.parseInt(taskID));
           workerInfo.setHostOrIp(hostOrIp);
 
-          missingWorker = workerInfo;
+          result.add(workerInfo);
           counter = 0;
         }
 
@@ -504,7 +505,7 @@ public class HybridUtils {
       e.printStackTrace();
     }
 
-    return missingWorker;
+    return result;
   }
 
   public static void printCheckpointSuccess(String homeDir, WorkerInfo worker){
@@ -553,8 +554,8 @@ public class HybridUtils {
     }
   }
 
-  public static void markKillingProcess(String homeDir, int superstep){
-    String fullFilename = homeDir + "/superstepkill_dir/" + superstep + ".txt";
+  public static void markKillingProcess(String homeDir, int superstep, int workerIndex){
+    String fullFilename = homeDir + "/superstepkill_dir/" + superstep + "_" + workerIndex + ".txt";
 
     java.nio.file.Path p = Paths.get(fullFilename);
     if(Files.exists(p)){
@@ -575,16 +576,20 @@ public class HybridUtils {
     }
   }
 
-  public static boolean checkKillingProcess(String homeDir, int superstep){
+  public static boolean checkKillingProcess(String homeDir, int superstep, int workerIndex){
     boolean result = false;
-    String fullFilename = homeDir + "/superstepkill_dir/" + superstep + ".txt";
+    String fullFilename = homeDir + "/superstepkill_dir/" + superstep + "_" + workerIndex + ".txt";
+
+    System.out.println("checkKillingProcess " + fullFilename);
 
     java.nio.file.Path p = Paths.get(fullFilename);
-    if(Files.exists(p)){
-      result = true;
+    if(!Files.exists(p)){
+      System.out.println("checkKillingProcess return false");
+      return false;
+    } else {
+      System.out.println("checkKillingProcess return true");
+      return true;
     }
-
-    return result;
   }
 
   public static boolean barrierOnHybridFolder(String homeDir, String dir, int numOfFiles){

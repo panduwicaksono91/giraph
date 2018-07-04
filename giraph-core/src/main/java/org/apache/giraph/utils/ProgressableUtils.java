@@ -272,7 +272,7 @@ public class ProgressableUtils {
           futures.entrySet().iterator();
       while (iterator.hasNext()) {
         Map.Entry<Integer, Future<R>> entry = iterator.next();
-        R result;
+        R result = null;
         try {
           // Try to get result from the future
           result = entry.getValue().get(
@@ -284,7 +284,7 @@ public class ProgressableUtils {
           if (e.getCause() instanceof RuntimeException) {
             throw (RuntimeException) e.getCause();
           } else {
-            throw new IllegalStateException("Exception occurred", e.getCause());
+//            throw new IllegalStateException("Exception occurred", e.getCause()); // optimistic recovery bypass
           }
 
         } catch (TimeoutException e) {
