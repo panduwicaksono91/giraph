@@ -2179,6 +2179,11 @@ else[HADOOP_NON_SECURE]*/
     }
   }
 
+  /**
+   * Method to check whether this worker has been restarted.
+   * @return true if this worker has been restarted
+   * @author Pandu Wicaksono
+   */
   private boolean checkWorkerRestarted() {
     boolean result = false;
 
@@ -2195,10 +2200,20 @@ else[HADOOP_NON_SECURE]*/
     return result;
   }
 
+  /**
+   * Method to get the number of failure in the system
+   * @return the number of failure in the system
+   * @author Pandu Wicaksono
+   */
   public final int getNumberOfFailure() {
     return numberOfFailure;
   }
 
+  /**
+   * Method to set the number of failure in the system
+   * @param numberOfFailure
+   * @author Pandu Wicaksono
+   */
   public final void setNumberOfFailure(int numberOfFailure) {
     this.numberOfFailure = numberOfFailure;
 
@@ -2217,6 +2232,11 @@ else[HADOOP_NON_SECURE]*/
     }
   }
 
+  /**
+   * Method to get the recovery method
+   * @return recoveryMethod
+   * @author Pandu Wicaksono
+   */
   public final boolean getRecoveryMethod(){
     return recoveryMethod;
   }

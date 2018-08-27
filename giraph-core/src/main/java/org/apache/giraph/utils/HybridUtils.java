@@ -277,21 +277,9 @@ public class HybridUtils {
    * @param homeDir
    */
   public static void deleteOptimisticFile(String homeDir){
-//    LOG.info("deleteOptimisticFile: starts");
     String dir = homeDir;
-//    String optimistic_signaltxt = "/optimistic_signal.txt";
-//    String workerInfoListtxt = "/workerInfoList.txt";
-
-//    File file = new File(dir + optimistic_signaltxt);
-//    LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
-//    file.delete();
-
-//    file = new File(dir + workerInfoListtxt);
-//    LOG.info("deleteOptimisticFile: " + file.toPath() + " flag "  + Files.exists(file.toPath()));
-//    file.delete();
 
     deleteAllFilesInDirectory(homeDir, "/optimistic_dir/");
-//    deleteAllFilesInDirectory(homeDir, "/partitionStats_dir/");
     deleteAllFilesInDirectory(homeDir, "/checkpoint_dir/");
   }
 
@@ -393,7 +381,6 @@ public class HybridUtils {
     }
 
     System.out.println("readPartitionStatsListFromFile");
-//    printPartitionStatList(result);
 
     return result;
   }
@@ -421,13 +408,6 @@ public class HybridUtils {
                                                    String homeDir, WorkerInfo worker){
     String fullFilename = homeDir + "/partitionStats_dir/"
             + worker.getTaskId() + ".txt";
-
-//    Collections.sort(statsList, new Comparator<PartitionStats>() {
-//      @Override
-//      public int compare(PartitionStats o1, PartitionStats o2) {
-//        return o1.getPartitionId() - o2.getPartitionId();
-//      }
-//    });
 
     java.nio.file.Path p = Paths.get(fullFilename);
     if(Files.exists(p)){
@@ -627,7 +607,6 @@ public class HybridUtils {
 
   }
 
-
   /**
    * Get number of failure
    * @param homeDir
@@ -666,9 +645,6 @@ public class HybridUtils {
    */
   public static boolean checkHybridRecovery(int numberOfFailure, int hybridMaxFailure){
     boolean result = false;
-
-//    System.out.println("check hybrid recovery: numberOfFailure " + numberOfFailure +
-//            "; max failure " + hybridMaxFailure);
 
     if(numberOfFailure < hybridMaxFailure){
       result = true;

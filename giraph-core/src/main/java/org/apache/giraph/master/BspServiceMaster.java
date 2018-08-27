@@ -83,8 +83,6 @@ import org.json.JSONObject;
 
 import java.io.*;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -105,6 +103,9 @@ import static org.apache.giraph.conf.GiraphConstants.PARTITION_LONG_TAIL_MIN_PRI
  * @param <I> Vertex id
  * @param <V> Vertex data
  * @param <E> Edge data
+ *
+ * Customized to implement hybrid recovery method.
+ * @author Pandu Wicaksono
  */
 @SuppressWarnings("rawtypes, unchecked")
 public class BspServiceMaster<I extends WritableComparable,
@@ -181,9 +182,9 @@ public class BspServiceMaster<I extends WritableComparable,
   private final CheckpointSupportedChecker checkpointSupportedChecker;
 
   /** Optimistic recovery */
-//  private Collection<PartitionOwner> fixedPartitionOwners;
-//  private String partitionOwnersDir = "/home/pandu/Desktop/windows-share";
+  /** Info of the missing worker */
   private List<WorkerInfo> missingWorker = new ArrayList<WorkerInfo>();
+  /** The number of failures in the system */
   private int numberOfFailure  = 0;
 
   /**
@@ -2409,6 +2410,7 @@ public class BspServiceMaster<I extends WritableComparable,
   /**
    * Method to check which recovery method is used by the hybrid recovery
    * @return true - optimistic recovery, false - pessimistic recovery
+   * @author Pandu Wicaksono
    */
   private boolean checkHybridRecovery(){
     boolean result = false;
@@ -2423,6 +2425,10 @@ public class BspServiceMaster<I extends WritableComparable,
     return result;
   }
 
+  /**
+   * Method to increment the number failure in the system.
+   * @author Pandu Wicaksono
+   */
   private void incrementNumberOfFailure(){
     numberOfFailure++;
 

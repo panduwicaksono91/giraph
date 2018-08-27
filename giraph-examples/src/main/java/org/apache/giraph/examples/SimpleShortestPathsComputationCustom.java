@@ -18,18 +18,11 @@
 
 package org.apache.giraph.examples;
 
-import com.google.common.collect.Iterables;
 import org.apache.giraph.conf.LongConfOption;
-import org.apache.giraph.counters.GiraphStats;
 import org.apache.giraph.edge.Edge;
 import org.apache.giraph.graph.BasicComputation;
-import org.apache.giraph.graph.GlobalStats;
 import org.apache.giraph.graph.Vertex;
-import org.apache.giraph.utils.HybridUtils;
-import org.apache.giraph.worker.WorkerContext;
-import org.apache.hadoop.io.DoubleWritable;
-import org.apache.hadoop.io.FloatWritable;
-import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.*;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
@@ -38,6 +31,10 @@ import java.util.List;
 
 /**
  * Demonstrates the basic Pregel shortest paths implementation.
+ * Updated with failure simulation and compensation function
+ * for optimistic recovery.
+ * This class is the implementation of weighted graph having edge values.
+ * @author Pandu Wicaksono
  */
 @Algorithm(
     name = "Shortest paths",
@@ -67,62 +64,53 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
   public void compute(
       Vertex<LongWritable, DoubleWritable, FloatWritable> vertex,
       Iterable<DoubleWritable> messages) throws IOException {
+    // at superstep 0, initialize all vertex value as max
     if (getSuperstep() == 0) {
       vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
     }
 
-    if(compensationFunctionEnabled()){
-      System.out.println("Compensate function in superstep " + getSuperstep()
-              + " at attempt " + getContext().getTaskAttemptID().getId());
+    /** Compensation function */
+    if((getConf().getRecoveryMode().equals("o") ||
+            getWorkerContext().getRecoveryMethod())
+            &&
+            compensationFunctionEnabled((int) getSuperstep(),
+                    getWorkerContext().getRestartedSuperstep())){
 
       // for the failed worker, the initial value of all vertex is 0
+      // (because when the variable double is initialized, the default value is 0,
+      // therefore the mandatory checkpoint has 0 as vertex value,
+      // then the value will be updated in the initialization of the vertex - superstep 0)
       if(vertex.getValue().equals(new DoubleWritable(0))){
-        System.out.println("Compensate function vertex " + vertex.getId() + " by resetting values");
         vertex.setValue(new DoubleWritable(Double.MAX_VALUE));
       } else {
-
-        System.out.println("Compensate function vertex " + vertex.getId() + " by sending message");
-        // for the success worker, send messages to their edges
-
+        // for the alive worker, send messages to their edges
         for (Edge<LongWritable, FloatWritable> edge : vertex.getEdges()) {
-        double distance = vertex.getValue().get() + edge.getValue().get();
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("Vertex " + vertex.getId() + " sent to " +
-            edge.getTargetVertexId() + " = " + distance);
-        }
+          double distance = vertex.getValue().get() + edge.getValue().get();
 
-        System.out.println(getSuperstep() + " " + getMyWorkerIndex() + " " + getConf().getLocalHostname()
-            + " " + getConf().getTaskPartition() + " " +
-            "Vertex " + vertex.getId() + " sent to " +
-            edge.getTargetVertexId() + " = " + distance);
-        sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Vertex " + vertex.getId() + " sent to " +
+                    edge.getTargetVertexId() + " = " + distance);
+          }
+
+          sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
         }
       }
     }
 
-    // check whether to kill this process or not
-    if(killProcessEnabled(getConf().getSuperstepToKill())){
-      System.out.println("Kill process in superstep " + getSuperstep()
-              + " at attempt " + getContext().getTaskAttemptID().getId());
-      HybridUtils.markKillingProcess(getConf().getHybridHomeDir(), (int)getSuperstep(),getMyWorkerIndex());
+    /** Failure simulation */
+    if(killProcessEnabled(getConf().getSuperstepToKill(), getConf().getWorkerToKill())){
       System.exit(-1);
     }
 
+    /** Algorithm computation */
+    // initialize the minimum distancee
     double minDist = isSource(vertex) ? 0d : Double.MAX_VALUE;
     for (DoubleWritable message : messages) {
       minDist = Math.min(minDist, message.get());
     }
 
-    // update to check the trace
-    if (LOG.isDebugEnabled()) {
-      LOG.debug("Vertex " + vertex.getId() + " got minDist = " + minDist +
-          " vertex value = " + vertex.getValue());
-    }
-    System.out.println(getSuperstep() + " " + getMyWorkerIndex() + " " + getConf().getLocalHostname()
-            + " " + getConf().getTaskPartition() + " " +
-            "Vertex " + vertex.getId() + " got minDist = " + minDist +
-            " vertex value = " + vertex.getValue());
-
+    // if the minimum distance is lower than the previous superstep
+    // update the value and send message to the neighbour
     if (minDist < vertex.getValue().get()) {
       vertex.setValue(new DoubleWritable(minDist));
       for (Edge<LongWritable, FloatWritable> edge : vertex.getEdges()) {
@@ -132,62 +120,62 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
               edge.getTargetVertexId() + " = " + distance);
         }
 
-        System.out.println(getSuperstep() + " " + getMyWorkerIndex() + " " + getConf().getLocalHostname()
-                + " " + getConf().getTaskPartition() + " " +
-                "Vertex " + vertex.getId() + " sent to " +
-                edge.getTargetVertexId() + " = " + distance);
         sendMessage(edge.getTargetVertexId(), new DoubleWritable(distance));
       }
     }
 
+    // always vote to halt after processing this vertex
     vertex.voteToHalt();
-
   }
 
   /**
-   * This method gives instruction to kill the process and simulate failure.
+   * This method gives flag to kill the process and simulate failure.
    *
    * @author Pandu Wicaksono
-   * @return instruction to kill this process
+   * @return flag to kill this process
    */
-  private boolean killProcessEnabled(String superstepToKill){
+  private boolean killProcessEnabled(String superstepToKill, String workerToKill){
     boolean result = false;
 
-    System.out.println("Check killProcessEnabled");
-    System.out.println("superstepToKill: " + superstepToKill);
-	
+    // superstep to kill
     // parse the string
     String superstepToKillArray[] = superstepToKill.split(",");
 
-    // default value
+    // default value, no superstep to kill, return false
     if(superstepToKillArray.length == 1 && superstepToKillArray[0].equals("")){
-	  System.out.println("superstepToKillArray[0]: " + superstepToKillArray[0]);
-	  System.out.println("no need to kill");
       return false;
     }
 
-    System.out.println("Check list");
-	
+    // if the worker has already been killed in this superstep, return false
+    if((int)getSuperstep() == getWorkerContext().getRestartedSuperstep()){
+      return false;
+    }
+
     // parse into integer
     List<Integer> superstepToKillList = new ArrayList<Integer>();
     for(int ii = 0; ii < superstepToKillArray.length; ii++){
       superstepToKillList.add(Integer.parseInt(superstepToKillArray[ii]));
-	    System.out.println(superstepToKillList.get(ii));
     }
 
-    int index = superstepToKillList.indexOf((int)getSuperstep());
-    System.out.println("Check killProcessEnabled index: " + index + " superstep: " + getSuperstep());
-//    int numOfAttempt = getContext().getTaskAttemptID().getId();
-	
-	  System.out.println("Check equal superstep: " + superstepToKillList.contains((int)getSuperstep()));
+    // worker to kill
+    String workerToKillArray[] = workerToKill.split(",");
 
-    boolean attempt = (!HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),
-            (int)getSuperstep(),getMyWorkerIndex()))
-            ? true : false;
-    boolean superstep_to_kill = (superstepToKillList.contains((int)getSuperstep())) ? true : false;
-    boolean failed_worker = (getWorkerContext().getMyWorkerIndex() == 0) ? true : false;
+    // default value, no worker to kill, return false
+    if(workerToKillArray.length == 1 && workerToKillArray[0].equals("")){
+      return false;
+    }
 
-    result = (attempt && superstep_to_kill && failed_worker);
+    // parse into integer
+    List<Integer> workerToKillList = new ArrayList<Integer>();
+    for(int ii = 0; ii < workerToKillArray.length; ii++){
+      workerToKillList.add(Integer.parseInt(workerToKillArray[ii]));
+    }
+
+    boolean superstep_to_kill =
+            (superstepToKillList.contains((int)getSuperstep())) ? true : false;
+    boolean failed_worker =
+            (workerToKillList.contains(getWorkerContext().getMyWorkerIndex())) ? true : false;
+    result = (superstep_to_kill && failed_worker);
 
     return result;
   }
@@ -196,50 +184,16 @@ public class SimpleShortestPathsComputationCustom extends BasicComputation<
    * This method checks whether we need to apply compensation function or not.
    *
    * @author Pandu Wicaksono
-   * @return
+   * @return flag to enable compensation function
    */
-  private boolean compensationFunctionEnabled(){
+  private boolean compensationFunctionEnabled(int superstep, int restartedSuperstep){
     boolean result = false;
-	
-//    int numberOfAttempt = getContext().getTaskAttemptID().getId();
-//    long superstep = getSuperstep();
 
-//    System.out.println("Check compensationFunctionEnabled workerID " + getMyWorkerIndex() +
-//    " attempt " + numberOfAttempt + " superstep " + superstep);
-
-    if(HybridUtils.checkKillingProcess(getConf().getHybridHomeDir(),(int)getSuperstep(),getMyWorkerIndex())){
-      result = true;
+    // if this is a restarted superstep, apply compensation function
+    if(superstep != 0 && superstep == restartedSuperstep){
+      return true;
     }
 
     return result;
-
-    // first attempt don't have to apply compensation function
-//    if(numberOfAttempt == 0){
-//      return false;
-//    }
-//
-//    // aligns the failed superstep with the number of attempt
-//    // parse the string
-//    String superstepToKillArray[] = getConf().getSuperstepToKill().split(",");
-//
-//    // parse into integer
-//    List<Integer> superstepToKillList = new ArrayList<Integer>();
-//    for(int ii = 0; ii < superstepToKillArray.length; ii++){
-//      superstepToKillList.add(Integer.parseInt(superstepToKillArray[ii]));
-//    }
-//
-//    int index = superstepToKillList.indexOf((int)superstep);
-//
-//    // for alive worker
-//    if(getMyWorkerIndex() != 0 && ((index + 1) == numberOfAttempt)){
-//      result = true;
-//    }
-//
-//    // for failed worker
-//    if(getMyWorkerIndex() == 0 && ((index + 1)*2 == numberOfAttempt)){
-//      result = true;
-//    }
-//
-//    return result;
   }
 }
