@@ -58,10 +58,7 @@ import org.apache.giraph.partition.PartitionOwner;
 import org.apache.giraph.partition.PartitionStats;
 import org.apache.giraph.partition.PartitionStore;
 import org.apache.giraph.scripting.ScriptLoader;
-import org.apache.giraph.utils.CallableFactory;
-import org.apache.giraph.utils.GcObserver;
-import org.apache.giraph.utils.MemoryUtils;
-import org.apache.giraph.utils.ProgressableUtils;
+import org.apache.giraph.utils.*;
 import org.apache.giraph.worker.BspServiceWorker;
 import org.apache.giraph.worker.InputSplitsCallable;
 import org.apache.giraph.worker.WorkerContext;
@@ -539,6 +536,8 @@ end[PURE_YARN]*/
    */
   private void prepareForSuperstep(GraphState graphState) {
     serviceWorker.prepareSuperstep(); // prepare the aggregator
+
+    serviceWorker.setNumberOfFailure(HybridUtils.getNumberOfFailure(conf.getHybridHomeDir()));
 
     serviceWorker.getWorkerContext().setGraphState(graphState);
 

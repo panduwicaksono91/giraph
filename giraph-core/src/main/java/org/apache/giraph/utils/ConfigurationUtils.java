@@ -100,6 +100,9 @@ end[PURE_YARN]*/
             "Recovery mode");
     OPTIONS.addOption("wk", "workerToKill", true,
             "List of worker to kill");
+    OPTIONS.addOption("hmf", "hybridMaxFailure", true,
+            "Max failure parameter for hybrid recovery");
+
 
     OPTIONS.addOption("h", "help", false, "Help");
     OPTIONS.addOption("la", "listAlgorithms", false, "List supported " +
@@ -375,6 +378,10 @@ end[PURE_YARN]*/
 
     if (cmd.hasOption("wk")) {
       conf.setWorkerToKill(cmd.getOptionValue("wk"));
+    }
+
+    if (cmd.hasOption("hmf")) {
+      conf.setHybridMaxFailure(Integer.parseInt(cmd.getOptionValue("hmf")));
     }
 
     if (cmd.hasOption("vof")) {

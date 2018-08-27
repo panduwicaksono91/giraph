@@ -184,6 +184,7 @@ public class BspServiceMaster<I extends WritableComparable,
 //  private Collection<PartitionOwner> fixedPartitionOwners;
 //  private String partitionOwnersDir = "/home/pandu/Desktop/windows-share";
   private List<WorkerInfo> missingWorker = new ArrayList<WorkerInfo>();
+  private int numberOfFailure  = 0;
 
   /**
    * Constructor for setting up the master.
@@ -1329,6 +1330,9 @@ public class BspServiceMaster<I extends WritableComparable,
 
   @Override
   public void restartFromCheckpoint(long checkpoint) {
+    // hybrid recovery, increment number of failure
+    incrementNumberOfFailure();
+
     // Process:
     // 1. Increase the application attempt and set to the correct checkpoint
     // 2. Send command to all workers to restart their tasks
@@ -1802,7 +1806,8 @@ public class BspServiceMaster<I extends WritableComparable,
         false)) {
       System.out.println("BSPServiceMaster: fail when doing superstep " + getSuperstep());
 
-      if(getConfiguration().getRecoveryMode().equals("p")){ // pessimistic recovery
+      if(getConfiguration().getRecoveryMode().equals("p") ||
+              (getConfiguration().getRecoveryMode().equals("h") && (checkHybridRecovery() == false))){ // pessimistic recovery
         return SuperstepState.WORKER_FAILURE;
       }
 
@@ -2057,7 +2062,8 @@ public class BspServiceMaster<I extends WritableComparable,
     }
 
     // pessimistic recovery
-    if(getConfiguration().getRecoveryMode().equals("p")){
+    if(getConfiguration().getRecoveryMode().equals("p") ||
+            (getConfiguration().getRecoveryMode().equals("h") && (checkHybridRecovery() == false))){
       if (getRestartedSuperstep() != UNSET_SUPERSTEP) {
         firstCheckpoint = getRestartedSuperstep() + checkpointFrequency;
       }
@@ -2400,4 +2406,26 @@ public class BspServiceMaster<I extends WritableComparable,
         Math.min(percentage, globalStats.getLowestGraphPercentageInMemory()));
   }
 
+  /**
+   * Method to check which recovery method is used by the hybrid recovery
+   * @return true - optimistic recovery, false - pessimistic recovery
+   */
+  private boolean checkHybridRecovery(){
+    boolean result = false;
+
+    System.out.println("check hybrid recovery: numberOfFailure " + numberOfFailure +
+            "; max failure " + getConfiguration().getHybridMaxFailure());
+
+    if(numberOfFailure < getConfiguration().getHybridMaxFailure()){
+      result = true;
+    }
+
+    return result;
+  }
+
+  private void incrementNumberOfFailure(){
+    numberOfFailure++;
+
+    HybridUtils.setNumberOfFailure(getConfiguration().getHybridHomeDir(), numberOfFailure);
+  }
 }

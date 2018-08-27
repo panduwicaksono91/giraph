@@ -122,6 +122,10 @@ public interface GiraphConstants {
   StrConfOption WORKER_TO_KILL = new StrConfOption("giraph.workerToKill",
           "", "worker to kill");
 
+  /** Maximum number of failure for hybrid recovery */
+  IntConfOption HYBRID_MAX_FAILURE = new IntConfOption("giraph.hybridMaxFailure",
+          3, "max failure for hybrid recovery");
+
   /** Mapping related information */
   ClassConfOption<MappingStore> MAPPING_STORE_CLASS =
       ClassConfOption.create("giraph.mappingStoreClass", null,

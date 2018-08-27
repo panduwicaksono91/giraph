@@ -179,6 +179,8 @@ public class BspServiceWorker<I extends WritableComparable,
   List<WorkerInfo> missingWorkerList;
   WorkerInfo missingWorker;
   List<PartitionStats> tmpPartitionStatsList;
+  int numberOfFailure;
+  boolean recoveryMethod;
 
   /**
    * Constructor for setting up the worker.
@@ -502,7 +504,10 @@ public class BspServiceWorker<I extends WritableComparable,
 
     // optimistic recovery
     // if worker is restarted
-    if(getConfiguration().getRecoveryMode().equals("o") && checkWorkerRestarted()){
+    if((getConfiguration().getRecoveryMode().equals("o") || (getConfiguration().getRecoveryMode().equals("h") &&
+            (HybridUtils.checkHybridRecovery(getNumberOfFailure(),
+                                              getConfiguration().getHybridMaxFailure()))))
+       && checkWorkerRestarted()){
       LOG.info("setup: checkWorkerRestarted");
       while(!HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
 	      LOG.info("setup: whileLoop");
@@ -1002,8 +1007,11 @@ else[HADOOP_NON_SECURE]*/
         // optimistic recovery
         LOG.info("waitForOtherWorkers: waiting for " + superstepFinishedNode);
 
-        if(getConfiguration().getRecoveryMode().equals("o") &&
-                HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
+        if((getConfiguration().getRecoveryMode().equals("o") ||
+                (getConfiguration().getRecoveryMode().equals("h") &&
+                        (HybridUtils.checkHybridRecovery(getNumberOfFailure(),
+                                                  getConfiguration().getHybridMaxFailure()))))
+                && HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())){
           try {
             storeCheckpoint();
             HybridUtils.printCheckpointSuccess(getConfiguration().getHybridHomeDir(), workerInfo);
@@ -1725,7 +1733,10 @@ else[HADOOP_NON_SECURE]*/
       workerClient.setup();
 else[HADOOP_NON_SECURE]*/
       // optimistic recovery
-      if(getConfiguration().getRecoveryMode().equals("p")){
+      if(getConfiguration().getRecoveryMode().equals("p") ||
+              (getConfiguration().getRecoveryMode().equals("h") &&
+                      (HybridUtils.checkHybridRecovery(getNumberOfFailure(),
+                      getConfiguration().getHybridMaxFailure()) == false))){
         workerClient.setup(getConfiguration().authenticate());
       } else if(!HybridUtils.getOptimisticNotification(getConfiguration().getHybridHomeDir())) {
         workerClient.setup(getConfiguration().authenticate());
@@ -2168,7 +2179,7 @@ else[HADOOP_NON_SECURE]*/
     }
   }
 
-  private boolean checkWorkerRestarted(){
+  private boolean checkWorkerRestarted() {
     boolean result = false;
 
     String dir_name = getConfiguration().getHybridHomeDir() + "/optimistic_dir/";
@@ -2177,11 +2188,37 @@ else[HADOOP_NON_SECURE]*/
             workerInfo.getTaskId() + ".txt";
 
     java.nio.file.Path p = Paths.get(filename);
-    if(Files.exists(p)){
+    if (Files.exists(p)) {
       result = true;
     }
 
     return result;
+  }
+
+  public final int getNumberOfFailure() {
+    return numberOfFailure;
+  }
+
+  public final void setNumberOfFailure(int numberOfFailure) {
+    this.numberOfFailure = numberOfFailure;
+
+    if(getConfiguration().getRecoveryMode().equals("o")){
+      recoveryMethod = true;
+    } else if (getConfiguration().getRecoveryMode().equals("p")){
+      recoveryMethod = false;
+    } else {
+      if(numberOfFailure == getConfiguration().getHybridMaxFailure())
+      {
+        recoveryMethod = true;
+      } else {
+        recoveryMethod = HybridUtils.checkHybridRecovery(this.numberOfFailure,
+                getConfiguration().getHybridMaxFailure());
+      }
+    }
+  }
+
+  public final boolean getRecoveryMethod(){
+    return recoveryMethod;
   }
 
 }

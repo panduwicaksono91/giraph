@@ -40,6 +40,7 @@ import org.apache.giraph.partition.PartitionStore;
 import org.apache.giraph.time.SystemTime;
 import org.apache.giraph.time.Time;
 import org.apache.giraph.time.Times;
+import org.apache.giraph.utils.HybridUtils;
 import org.apache.giraph.utils.MemoryUtils;
 import org.apache.giraph.utils.TimedLogger;
 import org.apache.giraph.utils.Trimmable;
@@ -374,7 +375,9 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
           }
 
           // optimistic recovery
-          if(configuration.getRecoveryMode().equals("o") && vertex.isHalted() &&
+          if((configuration.getRecoveryMode().equals("o") || // if optimistic recovery is used
+                  serviceWorker.getRecoveryMethod()) // or hybrid recovery is using optimistic recovery
+            && vertex.isHalted() &&
             (serviceWorker.getSuperstep() == serviceWorker.getRestartedSuperstep())){
             vertex.wakeUp();
           }

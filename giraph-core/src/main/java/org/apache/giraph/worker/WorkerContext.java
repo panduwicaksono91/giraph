@@ -47,6 +47,8 @@ public abstract class WorkerContext
   private AllWorkersInfo allWorkersInfo;
 
   private int restartedSuperstep;
+  private int numberOfFailure;
+  private boolean recoveryMethod;
 
   /**
    * Set the graph state.
@@ -68,6 +70,8 @@ public abstract class WorkerContext
     allWorkersInfo = new AllWorkersInfo(
         serviceWorker.getWorkerInfoList(), serviceWorker.getWorkerInfo());
     this.restartedSuperstep = (int)serviceWorker.getRestartedSuperstep();
+    this.numberOfFailure = (int)serviceWorker.getNumberOfFailure();
+    this.recoveryMethod = serviceWorker.getRecoveryMethod();
   }
 
   /**
@@ -219,4 +223,21 @@ public abstract class WorkerContext
   public int getRestartedSuperstep(){
     return restartedSuperstep;
   }
+
+  public void setNumberOfFailure(int numberOfFailure){
+    this.numberOfFailure = numberOfFailure;
+  }
+
+  public int getNumberOfFailure(){
+    return numberOfFailure;
+  }
+
+  public void setRecoveryMethod(boolean recoveryMethod){
+    this.recoveryMethod = recoveryMethod;
+  }
+
+  public boolean getRecoveryMethod(){
+    return recoveryMethod;
+  }
+
 }

@@ -156,6 +156,22 @@ public class GiraphConfiguration extends Configuration
   }
 
   /**
+   * Set hybrid max failure
+   * @author Pandu Wicaksono
+   */
+  public final void setHybridMaxFailure(int hybridMaxFailure){
+    HYBRID_MAX_FAILURE.set(this, hybridMaxFailure);
+  }
+
+  /**
+   * Get the hybrid max failure
+   * @author Pandu Wicaksono
+   */
+  public final int getHybridMaxFailure(){
+    return HYBRID_MAX_FAILURE.get(this);
+  }
+
+  /**
    * Get name of computation being run. We leave this up to the
    * {@link ComputationFactory} to decide what to return.
    *

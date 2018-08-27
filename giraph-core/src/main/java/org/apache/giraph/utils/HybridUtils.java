@@ -605,4 +605,75 @@ public class HybridUtils {
 
     return result;
   }
+
+  /**
+   * Set number of failure
+   * @param homeDir
+   */
+  public static void setNumberOfFailure(String homeDir, int numberOfFailure){
+
+    String file = homeDir + "/number_of_failure.txt";
+
+    try {
+      PrintWriter writer = new PrintWriter(file, "UTF-8");
+      writer.write(numberOfFailure+"\n");
+      writer.flush();
+      writer.close();
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (UnsupportedEncodingException e) {
+      e.printStackTrace();
+    }
+
+  }
+
+
+  /**
+   * Get number of failure
+   * @param homeDir
+   * @return number of failure
+   */
+  public static int getNumberOfFailure(String homeDir){
+
+    int result = 0;
+    String file = homeDir + "/number_of_failure.txt";
+
+    java.nio.file.Path p = Paths.get(file);
+    if(!Files.exists(p)){
+      return 0;
+    }
+
+    try {
+      BufferedReader br = new BufferedReader(new FileReader(file));
+      String line = br.readLine();
+
+      result = Integer.parseInt(line);
+
+      br.close();
+
+    } catch (FileNotFoundException e) {
+      e.printStackTrace();
+    } catch (IOException e){
+      e.printStackTrace();
+    }
+
+    return result;
+  }
+
+  /**
+   * Method to check which recovery method is used by the hybrid recovery
+   * @return true - optimistic recovery, false - pessimistic recovery
+   */
+  public static boolean checkHybridRecovery(int numberOfFailure, int hybridMaxFailure){
+    boolean result = false;
+
+//    System.out.println("check hybrid recovery: numberOfFailure " + numberOfFailure +
+//            "; max failure " + hybridMaxFailure);
+
+    if(numberOfFailure < hybridMaxFailure){
+      result = true;
+    }
+
+    return result;
+  }
 }

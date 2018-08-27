@@ -256,4 +256,34 @@ public interface CentralizedServiceWorker<I extends WritableComparable,
    */
   void addressesAndPartitionsReceived(
       AddressesAndPartitionsWritable addressesAndPartitions);
+
+  // hybrid recovery
+  /**
+   * Set the number of failure
+   *
+   * @return the number of failure
+   */
+  void setNumberOfFailure(int numberOfFailure);
+
+  /**
+   * Get the number of failure
+   *
+   * @return the number of failure
+   */
+  int getNumberOfFailure();
+
+  /**
+   * Set the number of failure
+   *
+   * @return the number of failure
+   */
+//  void setRecoveryMethod(int numberOfFailure);
+
+  /**
+   * Get the number of failure
+   *
+   * @return the number of failure
+   */
+  boolean getRecoveryMethod();
+
 }
